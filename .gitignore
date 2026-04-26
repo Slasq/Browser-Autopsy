@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Artifacts
+artifacts/*.sqlite
+artifacts/*.db
+artifacts/History
+artifacts/places.sqlite
+
+# Raporty
+*.html
+*.csv
