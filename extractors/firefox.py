@@ -210,3 +210,60 @@ def extract_downloads(profile_path: Path) -> list[DownloadEntry]:
 
     print(f"[*] Znaleziono {len(entries)} pobranych plików")
     return entries
+
+# Firefox URLs
+def extract_searches(profile_path: Path) -> list[SearchEntry]:
+    """
+    Extract search queries from Firefox browsing history by parsing URLs.
+
+    Scans all visited URLs from moz_historyvisits + moz_places and tries to
+    detect known search engine patterns. Each visit that matches produces a
+    separate SearchEntry — repeated searches appear multiple times.
+
+    Args:
+        profile_path: Path to Firefox profile directory (contains 'places.sqlite').
+
+    Returns:
+        List of SearchEntry, sorted by timestamp ascending (None-timestamp last).
+
+    Raises:
+        FileNotFoundError: If 'places.sqlite' does not exist in profile_path.
+    """
+    db_path = profile_path / "places.sqlite"
+    checksum = sha256_file(db_path)
+    print(f"[*] Plik: places.sqlite\t SHA256: {checksum}")
+
+    conn, tmp_dir = open_db(db_path)
+    entries: list[SearchEntry] = []
+
+    try:
+        cursor = conn.execute(
+            """
+            SELECT p.url, v.visit_date
+            FROM moz_historyvisits v
+            JOIN moz_places p ON v.place_id = p.id
+            """
+        )
+        for row in cursor:
+            result = _extract_query(row["url"])
+            if result is None:
+                continue
+            engine, query = result
+            entries.append(
+                SearchEntry(
+                    timestamp=firefox_timestamp_to_utc(row["visit_date"]),
+                    engine=engine,
+                    query=query,
+                    url=row["url"],
+                    source_file=str(db_path),
+                    sha256=checksum,
+                )
+            )
+    finally:
+        conn.close()
+        shutil.rmtree(tmp_dir)
+
+    entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
+
+    print(f"[*] Znaleziono {len(entries)} wyszukiwań")
+    return entries
