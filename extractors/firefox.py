@@ -9,8 +9,9 @@ from extractors.base import (
     sha256_file,
     VisitEntry,
     DownloadEntry,
+    SearchEntry,
+    _extract_query,
 )
-
 
 # Firefox History
 
