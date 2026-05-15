@@ -1,42 +1,15 @@
 import shutil
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
 
-from extractors.base import chrome_timestamp_to_utc, open_db, sha256_file
-
-# (hostname_fragment, query_param) UWAGA: kolejność ma znaczenie
-_SEARCH_ENGINES: list[tuple[str, str]] = [
-    ("google.",        "q"),
-    ("bing.com",       "q"),
-    ("duckduckgo.com", "q"),
-    ("search.yahoo.com", "p"),
-    ("ecosia.org",     "q"),
-    ("search.brave.com", "q"),
-    ("startpage.com",  "q"),
-    ("youtube.com",    "search_query"),
-    ("yandex.",        "text"),
-]
-
-
-def _extract_query(url: str) -> tuple[str, str] | None:
-    """
-    Detect if a URL is a search and return (engine_name, query_string).
-    Returns None if the URL is not a recognised search URL or query is empty.
-    """
-    try:
-        parsed = urlparse(url)
-        host = parsed.hostname or ""
-        params = parse_qs(parsed.query)
-        for fragment, param in _SEARCH_ENGINES:
-            if fragment in host:
-                values = params.get(param)
-                if values and values[0].strip():
-                    return (fragment.strip(".").strip("/"), values[0].strip())
-    except Exception:
-        pass
-    return None
+from extractors.base import (
+    chrome_timestamp_to_utc,
+    open_db,
+    sha256_file,
+    VisitEntry,
+    DownloadEntry,
+    SearchEntry,
+    _extract_query,
+)
 
 # Chrome download states
 DOWNLOAD_STATE = {
@@ -46,18 +19,6 @@ DOWNLOAD_STATE = {
     3: "INTERRUPTED",
     4: "INTERRUPTED",  # alias
 }
-
-
-@dataclass
-class VisitEntry:
-    """Single browser visit event. Used by timeline.py (type: VISIT)."""
-    timestamp: datetime | None
-    url: str
-    title: str
-    visit_count: int
-    transition: int          #np. LINK, TYPED, RELOAD
-    source_file: str
-    sha256: str
 
 
 def extract_history(profile_path: Path) -> list[VisitEntry]:
@@ -117,23 +78,6 @@ def extract_history(profile_path: Path) -> list[VisitEntry]:
 
     print(f"[*] Znaleziono {len(entries)} wpisów historii")
     return entries
-
-
-# Downloads
-
-@dataclass
-class DownloadEntry:
-    """Single download event. Used by timeline.py (type: DOWNLOAD)."""
-    timestamp: datetime | None          # start time
-    end_timestamp: datetime | None      # end time (None if incomplete)
-    url: str                            # final URL (from downloads_url_chains)
-    target_path: str                    # local save path
-    filename: str                       # basename only, for quick anomaly checks
-    file_size: int                      # bytes (-1 if unknown)
-    state: str                          # COMPLETE / CANCELLED / INTERRUPTED / IN_PROGRESS
-    danger_type: int                    # raw Chrome danger_type flag
-    source_file: str
-    sha256: str
 
 
 def extract_downloads(profile_path: Path) -> list[DownloadEntry]:
@@ -208,19 +152,6 @@ def extract_downloads(profile_path: Path) -> list[DownloadEntry]:
 
     print(f"[*] Znaleziono {len(entries)} pobranych plików")
     return entries
-
-
-# Searches
-
-@dataclass
-class SearchEntry:
-    """Single search event extracted from a URL. Used by timeline.py (type: SEARCH)."""
-    timestamp: datetime | None
-    engine: str       # e.g. "google", "bing", "duckduckgo"
-    query: str        # decoded search phrase
-    url: str          # original full URL
-    source_file: str
-    sha256: str
 
 
 def extract_searches(profile_path: Path) -> list[SearchEntry]:
