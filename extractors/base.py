@@ -4,12 +4,13 @@ import sqlite3
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-
+from dataclasses import dataclass
+from urllib.parse import parse_qs, urlparse
 
 # Chrome: mikrosek od 1601-01-01 → różnica do Unix epoch w mikrosekundach
 _CHROME_EPOCH_DELTA = 11_644_473_600_000_000
 
-
+# Chrome modules
 def chrome_timestamp_to_utc(microseconds: int) -> datetime:
     """Convert Chrome WebKit timestamp (µs since 1601-01-01) to UTC datetime."""
     if microseconds == 0:
@@ -55,3 +56,72 @@ def open_db(path: Path) -> tuple[sqlite3.Connection, Path]:
     conn = sqlite3.connect(f"file:{tmp_db}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     return conn, tmp_dir
+
+# History
+@dataclass
+class VisitEntry:
+    """Single browser visit event. Used by timeline.py (type: VISIT)."""
+    timestamp: datetime | None
+    url: str
+    title: str
+    visit_count: int
+    transition: int          #np. LINK, TYPED, RELOAD
+    source_file: str
+    sha256: str
+
+# Downloads
+@dataclass
+class DownloadEntry:
+    """Single download event. Used by timeline.py (type: DOWNLOAD)."""
+    timestamp: datetime | None          # start time
+    end_timestamp: datetime | None      # end time (None if incomplete)
+    url: str                            # final URL (from downloads_url_chains)
+    target_path: str                    # local save path
+    filename: str                       # basename only, for quick anomaly checks
+    file_size: int                      # bytes (-1 if unknown)
+    state: str                          # COMPLETE / CANCELLED / INTERRUPTED / IN_PROGRESS
+    danger_type: int                    # raw Chrome danger_type flag
+    source_file: str
+    sha256: str
+
+# Searches
+@dataclass
+class SearchEntry:
+    """Single search event extracted from a URL. Used by timeline.py (type: SEARCH)."""
+    timestamp: datetime | None
+    engine: str       # e.g. "google", "bing", "duckduckgo"
+    query: str        # decoded search phrase
+    url: str          # original full URL
+    source_file: str
+    sha256: str
+
+# (hostname_fragment, query_param) UWAGA: kolejność ma znaczenie
+_SEARCH_ENGINES: list[tuple[str, str]] = [
+    ("google.",        "q"),
+    ("bing.com",       "q"),
+    ("duckduckgo.com", "q"),
+    ("search.yahoo.com", "p"),
+    ("ecosia.org",     "q"),
+    ("search.brave.com", "q"),
+    ("startpage.com",  "q"),
+    ("youtube.com",    "search_query"),
+    ("yandex.",        "text"),
+]
+
+def _extract_query(url: str) -> tuple[str, str] | None:
+    """
+    Detect if a URL is a search and return (engine_name, query_string).
+    Returns None if the URL is not a recognised search URL or query is empty.
+    """
+    try:
+        parsed = urlparse(url)
+        host = parsed.hostname or ""
+        params = parse_qs(parsed.query)
+        for fragment, param in _SEARCH_ENGINES:
+            if fragment in host:
+                values = params.get(param)
+                if values and values[0].strip():
+                    return (fragment.strip(".").strip("/"), values[0].strip())
+    except Exception:
+        pass
+    return None
