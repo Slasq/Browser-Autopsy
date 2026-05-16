@@ -15,6 +15,7 @@ from extractors import chrome, firefox
 class TimelineEvent:
     """Unified event on the timeline."""
     timestamp_utc: datetime
+    event_type: str           # chrome_visit | chrome_download | chrome_search / firefox_visit | firefox_download | firefox_search
     browser: str              # chrome | firefox
     source_file: str          # ścieżka do oryginalnego artefaktu
     source_sha256: str        # SHA256 pliku źródłowego (chain of custody)
@@ -28,6 +29,7 @@ def _visit_to_event(entry, browser: str) -> TimelineEvent:
     title = getattr(entry, "title", None)
     return TimelineEvent(
         timestamp_utc=entry.visit_time,
+        event_type=f"{browser}_visit",
         browser=browser,
         source_file=entry.source_file,
         source_sha256=entry.sha256,
@@ -40,6 +42,7 @@ def _download_to_event(entry, browser: str) -> TimelineEvent:
     target = getattr(entry, "target_path", None)
     return TimelineEvent(
         timestamp_utc=entry.start_time,
+        event_type=f"{browser}_download",
         browser=browser,
         source_file=entry.source_file,
         source_sha256=entry.sha256,
@@ -52,6 +55,7 @@ def _search_to_event(entry, browser: str) -> TimelineEvent:
     engine = getattr(entry, "engine", None)
     return TimelineEvent(
         timestamp_utc=entry.timestamp_utc,
+        event_type=f"{browser}_search",
         browser=browser,
         source_file=entry.source_file,
         source_sha256=entry.sha256,
@@ -93,4 +97,22 @@ def build_timeline(
         events.extend(_search_to_event(e, "firefox")
                       for e in firefox.extract_searches(firefox_profile))
 
+    events.sort(key=lambda ev: ev.timestamp_utc)
     return events
+
+
+def filter_by_time(
+    events: list[TimelineEvent],
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> list[TimelineEvent]:
+    """Return events within the [start, end] window, inclusive. None = unbounded."""
+    if start is not None and end is not None and start > end:
+        raise ValueError("start must be <= end")
+
+    result = events
+    if start is not None:
+        result = [e for e in result if e.timestamp_utc >= start]
+    if end is not None:
+        result = [e for e in result if e.timestamp_utc <= end]
+    return result
