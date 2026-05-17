@@ -1,0 +1,123 @@
+# Browser-Autopsy — default Indicators of Compromise (IOC) config.
+#
+# Loaded by analyzers/anomaly.py via load_iocs().
+# Override with: python main.py --ioc-file path/to/custom.yaml
+#
+# Matching rules:
+# - suspicious_domains : exact match (case-insensitive). Use "*.tld" for
+#                        suffix matching (e.g. "*.onion" → any .onion address).
+#                        Leading "www." is stripped from URLs before matching.
+# - suspicious_extensions : matched against the file's final extension
+#                            (case-insensitive). Leading dot optional in YAML.
+#                            Files like "invoice.pdf.exe" get flagged as
+#                            DOUBLE_EXTENSION (higher severity).
+# - suspicious_keywords : case-insensitive substring match in search queries.
+
+
+# Suspicious domains
+
+suspicious_domains:
+  # Tor hidden services
+  - "*.onion"
+
+  # Paste sites — frequently used to host malicious scripts / stolen creds
+  - pastebin.com
+  - ghostbin.com
+  - hastebin.com
+  - rentry.co
+
+  # Anonymous file sharing — common in exfiltration & malware delivery
+  - anonfiles.com
+  - mega.nz
+  - send.tresorit.com
+  - file.io
+  - tmpfiles.org
+
+  # Anti-forensic tools (their official sites)
+  - bleachbit.org
+  - ccleaner.com
+
+  # Known malware-hosting platforms / abuse-prone services
+  - raw.githubusercontent.com   # often used as malware CDN
+  - cdn.discordapp.com          # malware hosting via Discord attachments
+
+
+# Suspicious file extensions in downloads
+
+suspicious_extensions:
+  # Executables
+  - .exe
+  - .scr
+  - .com
+  - .pif
+
+  # Windows installers
+  - .msi
+  - .msp
+
+  # Scripting
+  - .ps1     # PowerShell
+  - .psm1
+  - .bat
+  - .cmd
+  - .vbs
+  - .vbe
+  - .js      # standalone JS (cscript/wscript)
+  - .jse
+  - .wsf
+  - .wsh
+  - .hta     # HTML Application — classic phishing vector
+
+  # Office macro-enabled formats
+  - .docm
+  - .xlsm
+  - .pptm
+  - .xlsb
+
+  # Libraries (DLL sideloading)
+  - .dll
+
+  # Cross-platform & disk images (often used to bypass mark-of-the-web)
+  - .jar
+  - .iso
+  - .img
+  - .vhd
+
+
+# Suspicious search keywords
+
+suspicious_keywords:
+  # Reconnaissance
+  - "what is my ip"
+  - whoami
+  - nslookup
+  - "find open ports"
+
+  # Credential / privilege tools
+  - mimikatz
+  - "lsass dump"
+  - pwdump
+  - hashcat
+  - "kerberoasting"
+
+  # Privilege escalation / bypass
+  - "bypass uac"
+  - "disable defender"
+  - "disable antivirus"
+  - "exclude folder defender"
+  - "disable smartscreen"
+
+  # Offensive frameworks
+  - "cobalt strike"
+  - metasploit
+  - "empire framework"
+  - "sliver c2"
+  - "havoc c2"
+
+  # Generic malicious intent
+  - "reverse shell"
+  - "how to hack"
+  - "remote access trojan"
+  - "ransomware builder"
+  - "keylogger source"
+  - "stealer source"
