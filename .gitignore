@@ -224,5 +224,5 @@ artifacts/History
 artifacts/places.sqlite
 
 # Raporty
-*.html
+.html
 *.csv
