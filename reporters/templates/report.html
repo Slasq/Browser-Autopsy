@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Browser-Autopsy Report — Case {{ case_id }}</title>
+<style>
+/* 
+   Browser-Autopsy Report — "Forensic Dossier" theme
+   Self-contained: no external fonts, no CDN, no JS dependencies.
+   Print-friendly: @media print rules for clean A4 PDF export.
+ */
+
+:root {
+    --bg:           #faf8f4;          /* warm cream paper */
+    --bg-paper:     #ffffff;          /* white cards/tables on cream */
+    --ink:          #1c1815;          /* near-black with warmth */
+    --ink-soft:     #5a534b;          /* muted body */
+    --rule:         #d8d3cb;          /* thin document rules */
+    --rule-strong:  #1c1815;          /* heavy section dividers */
+    --stamp:        #1a2b3d;          /* dark slate for header */
+    --stamp-ink:    #f5efe2;          /* cream-on-slate */
+    --sev-high-bg:  #f7e8e3;
+    --sev-high-fg:  #7a1d10;
+    --sev-med-bg:   #f7eed8;
+    --sev-med-fg:   #6b4a0c;
+    --sev-low-bg:   #f0eed4;
+    --sev-low-fg:   #5c5410;
+    --accent:       #7a1d10;          /* deep crimson, used sparingly */
+
+    --font-body:    Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --font-head:    -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif;
+    --font-mono:    "SF Mono", Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 32px 64px 32px;
+}
+
+/* Typography */
+h1, h2, h3 {
+    font-family: var(--font-head);
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0;
+}
+
+h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin: 48px 0 0 0;
+    padding-bottom: 6px;
+    /* double rule, like legal docs */
+    border-bottom: 1px solid var(--rule-strong);
+    box-shadow: 0 3px 0 -2px var(--rule-strong);
+}
+
+h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-soft);
+    margin: 28px 0 10px 0;
+}
+
+p { margin: 12px 0; }
+
+code, .mono {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+}
+
+/* Header / stamp */
+.report-header {
+    background: var(--stamp);
+    color: var(--stamp-ink);
+    padding: 40px 32px 32px 32px;
+    margin: 0 -32px 0 -32px;
+    border-bottom: 4px double var(--ink);
+}
+
+.report-header .stamp-line {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4em;
+    color: var(--stamp-ink);
+    opacity: 0.55;
+    margin-bottom: 18px;
+}
+
+.report-header h1 {
+    color: var(--stamp-ink);
+    font-family: var(--font-head);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    margin-bottom: 4px;
+}
+
+.report-header .subtitle {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--stamp-ink);
+    opacity: 0.75;
+}
+
+/* evidence-tag style case id */
+.evidence-tag {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-top: 22px;
+    padding: 6px 14px;
+    background: var(--stamp-ink);
+    color: var(--stamp);
+    border: 1px solid var(--stamp-ink);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.06em;
+}
+.evidence-tag .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--stamp);
+    opacity: 0.65;
+}
+.evidence-tag .value {
+    font-weight: 700;
+}
+
+.report-meta {
+    margin-top: 20px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--stamp-ink);
+    opacity: 0.7;
+    letter-spacing: 0.04em;
+}
+
+/* Source files */
+
+.source-files {
+    margin-top: 16px;
+    background: var(--bg-paper);
+    border: 1px solid var(--rule);
+    padding: 16px 20px;
+}
+.source-files .file-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--rule);
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+.source-files .file-row:last-child { border-bottom: none; }
+.source-files .path { color: var(--ink); word-break: break-all; }
+.source-files .hash { color: var(--ink-soft); }
+
+/* Stats */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    margin-top: 20px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+}
+.stat-card {
+    background: var(--bg-paper);
+    padding: 18px 20px;
+}
+.stat-card .value {
+    font-family: var(--font-head);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+.stat-card .label {
+    margin-top: 8px;
+    font-family: var(--font-head);
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+}
+.stat-card.sev-high .value { color: var(--sev-high-fg); }
+.stat-card.sev-med  .value { color: var(--sev-med-fg); }
+.stat-card.sev-low  .value { color: var(--sev-low-fg); }
+
+/* Bar chart */
+.bar-chart {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0 0 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+.bar-chart li {
+    display: grid;
+    grid-template-columns: 200px 1fr 48px;
+    gap: 14px;
+    align-items: center;
+    padding: 4px 0;
+}
+.bar-chart .bar-label { text-align: right; color: var(--ink-soft); }
+/* native <progress> styled to match the document aesthetic */
+.bar-chart progress.bar {
+    width: 100%;
+    height: 14px;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid var(--rule);
+    background: var(--bg-paper);
+    display: block;
+}
+.bar-chart progress.bar::-webkit-progress-bar { background: var(--bg-paper); }
+.bar-chart progress.bar::-webkit-progress-value { background: var(--stamp); }
+.bar-chart progress.bar::-moz-progress-bar { background: var(--stamp); }
+.bar-chart .bar-count {
+    text-align: right;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    background: var(--bg-paper);
+    border: 1px solid var(--rule);
+    font-size: 13px;
+}
+thead {
+    background: var(--bg-paper);
+    border-bottom: 2px solid var(--rule-strong);
+}
+th {
+    text-align: left;
+    padding: 10px 14px;
+    font-family: var(--font-head);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-soft);
+}
+td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+}
+tbody tr:last-child td { border-bottom: none; }
+
+/* anomaly highlight in timeline */
+tr.has-anomaly {
+    background: #fbf3ef;
+}
+tr.has-anomaly td:first-child {
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Severity badges */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-family: var(--font-head);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border: 1px solid currentColor;
+}
+.badge-high   { background: var(--sev-high-bg); color: var(--sev-high-fg); }
+.badge-medium { background: var(--sev-med-bg);  color: var(--sev-med-fg); }
+.badge-low    { background: var(--sev-low-bg);  color: var(--sev-low-fg); }
+
+.flag-stack { display: flex; flex-wrap: wrap; gap: 4px; }
+.flag-stack .badge { font-size: 9px; padding: 1px 6px; }
+
+.empty-note {
+    margin-top: 14px;
+    padding: 16px;
+    background: var(--bg-paper);
+    border: 1px dashed var(--rule);
+    font-style: italic;
+    color: var(--ink-soft);
+}
+
+/* Footer */
+.report-footer {
+    margin-top: 64px;
+    padding-top: 16px;
+    border-top: 2px solid var(--rule-strong);
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--ink-soft);
+}
+
+/*  Print */
+@media print {
+    html, body { background: white; }
+    .container { padding: 0; max-width: none; }
+    .report-header {
+        background: var(--stamp) !important;
+        color: var(--stamp-ink) !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        margin: 0;
+    }
+    .badge, .stat-card, progress.bar, tr.has-anomaly {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    h2 { page-break-after: avoid; }
+    table { page-break-inside: auto; }
+    tr { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    @page { size: A4; margin: 1.5cm 1.2cm; }
+}
+</style>
+</head>
+<body>
+
+<header class="report-header">
+    <div class="container" style="padding: 0;">
+        <div class="stamp-line">— Forensic Analysis Dossier —</div>
+        <h1>Browser-Autopsy Report</h1>
+        <div class="subtitle">Analysis of Chrome &amp; Firefox browser artifacts</div>
+        <div class="evidence-tag">
+            <span class="label">Case</span>
+            <span class="value">{{ case_id }}</span>
+        </div>
+        <div class="report-meta">Generated {{ generated_at }} UTC</div>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- Source files (chain of custody) -->
+    <h2>I. Source Files</h2>
+    <div class="source-files">
+        {% for path, sha256 in source_files.items() %}
+        <div class="file-row">
+            <span class="path">{{ path }}</span>
+            <span class="hash">SHA-256: {{ sha256 }}</span>
+        </div>
+        {% else %}
+        <div class="file-row"><span class="path">No source files recorded.</span></div>
+        {% endfor %}
+    </div>
+
+    <!-- Summary -->
+    <h2>II. Summary</h2>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="value">{{ stats.total_events }}</div>
+            <div class="label">Total Events</div>
+        </div>
+        <div class="stat-card">
+            <div class="value">{{ stats.total_anomalies }}</div>
+            <div class="label">Anomalies</div>
+        </div>
+        {% if stats.anomalies_by_severity.get('high') %}
+        <div class="stat-card sev-high">
+            <div class="value">{{ stats.anomalies_by_severity['high'] }}</div>
+            <div class="label">High Severity</div>
+        </div>
+        {% endif %}
+        {% if stats.anomalies_by_severity.get('medium') %}
+        <div class="stat-card sev-med">
+            <div class="value">{{ stats.anomalies_by_severity['medium'] }}</div>
+            <div class="label">Medium Severity</div>
+        </div>
+        {% endif %}
+        {% if stats.anomalies_by_severity.get('low') %}
+        <div class="stat-card sev-low">
+            <div class="value">{{ stats.anomalies_by_severity['low'] }}</div>
+            <div class="label">Low Severity</div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if stats.events_by_type %}
+    <h3>Events by Type</h3>
+    {% set max_count = stats.events_by_type.values() | max %}
+    <ul class="bar-chart">
+        {% for event_type, count in stats.events_by_type.items() %}
+        <li>
+            <span class="bar-label">{{ event_type }}</span>
+            <progress class="bar" value="{{ count }}" max="{{ max_count }}"></progress>
+            <span class="bar-count">{{ count }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if stats.anomalies_by_rule %}
+    <h3>Anomalies by Rule</h3>
+    {% set max_rule_count = stats.anomalies_by_rule.values() | max %}
+    <ul class="bar-chart">
+        {% for rule_id, count in stats.anomalies_by_rule.items() %}
+        <li>
+            <span class="bar-label">{{ rule_id }}</span>
+            <progress class="bar" value="{{ count }}" max="{{ max_rule_count }}"></progress>
+            <span class="bar-count">{{ count }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <!-- Detected Anomalies -->
+    <h2>III. Detected Anomalies ({{ anomalies | length }})</h2>
+    {% if anomalies_sorted %}
+    <table>
+        <thead>
+            <tr>
+                <th>Time (UTC)</th>
+                <th>Severity</th>
+                <th>Rule</th>
+                <th>Reason</th>
+                <th>Matched</th>
+                <th>Browser</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in anomalies_sorted %}
+            <tr>
+                <td><span class="mono">{{ a.event.timestamp_utc.isoformat() }}</span></td>
+                <td><span class="badge badge-{{ a.severity }}">{{ a.severity }}</span></td>
+                <td><code>{{ a.rule_id }}</code></td>
+                <td>{{ a.reason }}</td>
+                <td><code>{{ a.matched_value }}</code></td>
+                <td>{{ a.event.browser }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-note">No anomalies detected against the configured IOC set.</div>
+    {% endif %}
+
+    <!-- Timeline  -->
+    <h2>IV. Timeline ({{ events | length }})</h2>
+    {% if events_with_anomalies %}
+    <table>
+        <thead>
+            <tr>
+                <th>Time (UTC)</th>
+                <th>Browser</th>
+                <th>Type</th>
+                <th>Summary</th>
+                <th>Flags</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event, event_anomalies in events_with_anomalies %}
+            <tr {% if event_anomalies %}class="has-anomaly"{% endif %}>
+                <td><span class="mono">{{ event.timestamp_utc.isoformat() }}</span></td>
+                <td>{{ event.browser }}</td>
+                <td><code>{{ event.event_type }}</code></td>
+                <td>{{ event.summary }}</td>
+                <td>
+                    {% if event_anomalies %}
+                    <span class="flag-stack">
+                        {% for a in event_anomalies %}
+                        <span class="badge badge-{{ a.severity }}" title="{{ a.reason }}">{{ a.rule_id }}</span>
+                        {% endfor %}
+                    </span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-note">No timeline events recorded.</div>
+    {% endif %}
+
+    <footer class="report-footer">
+        End of Report &nbsp;·&nbsp; Browser-Autopsy &nbsp;·&nbsp; {{ generated_at }}
+    </footer>
+
+</div>
+</body>
+</html>
