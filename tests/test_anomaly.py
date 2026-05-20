@@ -16,10 +16,7 @@ from analyzers.anomaly import (
 from analyzers.timeline import TimelineEvent
 
 
-# --------------------------------------------------------------------------- #
-# Helpers / fixtures
-# --------------------------------------------------------------------------- #
-
+# Helpers
 def _ev(event_type: str, details=None, ts=None) -> TimelineEvent:
     """Build a minimal TimelineEvent for testing."""
     return TimelineEvent(
@@ -42,10 +39,7 @@ def sample_iocs() -> IOCs:
     )
 
 
-# --------------------------------------------------------------------------- #
 # load_iocs
-# --------------------------------------------------------------------------- #
-
 class TestLoadIOCs:
 
     def test_loads_valid_yaml(self, tmp_path):
@@ -104,10 +98,7 @@ class TestLoadIOCs:
         assert "mimikatz" in iocs.suspicious_keywords
 
 
-# --------------------------------------------------------------------------- #
 # detect_suspicious_domains
-# --------------------------------------------------------------------------- #
-
 class TestDetectSuspiciousDomains:
 
     def test_exact_match(self, sample_iocs):
@@ -166,10 +157,7 @@ class TestDetectSuspiciousDomains:
         assert len(out) == 1
 
 
-# --------------------------------------------------------------------------- #
 # detect_suspicious_extensions
-# --------------------------------------------------------------------------- #
-
 class TestDetectSuspiciousExtensions:
 
     def test_flags_exe(self, sample_iocs):
@@ -233,10 +221,7 @@ class TestDetectSuspiciousExtensions:
         assert out[0].matched_value == ".ps1"
 
 
-# --------------------------------------------------------------------------- #
 # detect_suspicious_keywords
-# --------------------------------------------------------------------------- #
-
 class TestDetectSuspiciousKeywords:
 
     def test_exact_keyword(self, sample_iocs):
@@ -280,10 +265,7 @@ class TestDetectSuspiciousKeywords:
         assert detect_suspicious_keywords(events, sample_iocs.suspicious_keywords) == []
 
 
-# --------------------------------------------------------------------------- #
 # detect() — orchestrator
-# --------------------------------------------------------------------------- #
-
 class TestDetectOrchestrator:
 
     def test_all_three_detectors_run(self, sample_iocs):

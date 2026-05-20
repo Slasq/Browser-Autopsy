@@ -58,6 +58,9 @@ python main.py --chrome-profile /path/to/chrome/Default --case-id INC-2024-001
 
 Reports land in `./output/`. Open `output/report.html` in any browser.
 
+> Want to see what a generated report looks like without running the tool?
+> Open `report_demo.html` in the repository root.
+
 ---
 
 ## Usage
@@ -78,16 +81,16 @@ python main.py \
 
 ### Options
 
-| Flag                  | Default        | Description |
-|-----------------------|----------------|-------------|
-| `--chrome-profile`    | —              | Path to a Chrome profile directory |
-| `--firefox-profile`   | —              | Path to a Firefox profile directory |
-| `--output-dir`        | `./output`     | Directory for generated reports |
-| `--report`            | `both`         | `html` / `csv` / `both` |
-| `--case-id`           | `UNSPECIFIED`  | Case ID displayed in HTML report header |
-| `--ioc-file`          | `./iocs.yaml`  | Path to IOC YAML config |
-| `--start`             | —              | Earliest event (ISO-8601; naive = UTC) |
-| `--end`               | —              | Latest event (ISO-8601; naive = UTC) |
+| Flag                  | Default               | Description |
+|-----------------------|-----------------------|-------------|
+| `--chrome-profile`    | —                     | Path to a Chrome profile directory |
+| `--firefox-profile`   | —                     | Path to a Firefox profile directory |
+| `--output-dir`        | `./output`            | Directory for generated reports |
+| `--report`            | `both`                | `html` / `csv` / `both` |
+| `--case-id`           | `UNSPECIFIED`         | Case ID displayed in HTML report header |
+| `--ioc-file`          | `./config/iocs.yaml`  | Path to IOC YAML config |
+| `--start`             | —                     | Earliest event (ISO-8601; naive = UTC) |
+| `--end`               | —                     | Latest event (ISO-8601; naive = UTC) |
 
 At least one of `--chrome-profile` / `--firefox-profile` is required.
 
@@ -111,8 +114,8 @@ At least one of `--chrome-profile` / `--firefox-profile` is required.
 
 ## IOC configuration
 
-The default `iocs.yaml` ships with sensible starter content — Tor hidden
-services, paste sites, anonymous file-sharing, malware extensions,
+The default `config/iocs.yaml` ships with sensible starter content — Tor
+hidden services, paste sites, anonymous file-sharing, malware extensions,
 offensive-security keywords. Override per investigation with `--ioc-file`:
 
 ```yaml
@@ -142,8 +145,11 @@ optional — `exe` and `.exe` both work.
 ```
 Browser-Autopsy/
 ├── main.py                  CLI entry point
-├── iocs.yaml                default IOC config
 ├── requirements.txt
+├── report_demo.html         sample rendered report
+│
+├── config/
+│   └── iocs.yaml            default IOC config
 │
 ├── extractors/              parse raw browser artifacts
 │   ├── base.py              shared helpers + dataclasses
@@ -160,7 +166,7 @@ Browser-Autopsy/
 │   └── templates/
 │       └── report.html      report template (inline CSS, no JS)
 │
-└── tests/                   pytest suite (~150 tests)
+└── tests/                   extensive pytest suite
 ```
 
 ---
@@ -168,9 +174,9 @@ Browser-Autopsy/
 ## Testing
 
 ```bash
-pytest                       # full suite
-pytest tests/test_main.py    # one module
-pytest -v -k chrome          # only chrome-related tests
+pytest                          # full suite
+pytest tests/test_timeline.py   # one module
+pytest -v -k chrome             # only chrome-related tests
 ```
 
 ---

@@ -35,10 +35,7 @@ import yaml
 from analyzers.timeline import TimelineEvent
 
 
-# --------------------------------------------------------------------------- #
 # Models
-# --------------------------------------------------------------------------- #
-
 @dataclass(frozen=True)
 class IOCs:
     """Indicators of Compromise loaded from a YAML config file."""
@@ -58,10 +55,7 @@ class Anomaly:
     matched_value: str  # the IOC entry that matched (for audit trail)
 
 
-# --------------------------------------------------------------------------- #
 # Config loading
-# --------------------------------------------------------------------------- #
-
 def load_iocs(path: Path) -> IOCs:
     """Load IOCs from a YAML file.
 
@@ -96,10 +90,7 @@ def load_iocs(path: Path) -> IOCs:
     )
 
 
-# --------------------------------------------------------------------------- #
 # Helpers
-# --------------------------------------------------------------------------- #
-
 def _basename(path: str) -> str:
     """Cross-platform basename — handles both '/' and '\\' separators.
 
@@ -145,10 +136,7 @@ _BENIGN_LOOKING_EXTS: frozenset[str] = frozenset({
 })
 
 
-# --------------------------------------------------------------------------- #
 # Detectors
-# --------------------------------------------------------------------------- #
-
 def detect_suspicious_domains(
     events: list[TimelineEvent],
     suspicious_domains: frozenset[str],
@@ -266,10 +254,7 @@ def detect_suspicious_keywords(
     return anomalies
 
 
-# --------------------------------------------------------------------------- #
 # Orchestrator
-# --------------------------------------------------------------------------- #
-
 def detect(events: list[TimelineEvent], iocs: IOCs) -> list[Anomaly]:
     """Run all v1 detectors against the timeline, return sorted by time."""
     anomalies: list[Anomaly] = []
