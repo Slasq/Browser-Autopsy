@@ -7,6 +7,29 @@ from pathlib import Path
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urlparse
 
+
+# Errors
+class ArtifactError(Exception):
+    """Base class for failures while accessing a browser artifact."""
+
+
+class ArtifactNotFoundError(ArtifactError, FileNotFoundError):
+    """The artifact file does not exist on disk.
+
+    Subclasses FileNotFoundError so existing `except FileNotFoundError`
+    callers keep working, while new code can catch the more specific type.
+    """
+
+
+class CorruptedDatabaseError(ArtifactError):
+    """The artifact exists but is not a readable SQLite database.
+
+    Covers both "this is not a database at all" (random bytes) and
+    "database disk image is malformed" (truncated / partially overwritten
+    file). NOT a FileNotFoundError — the file is present, just unusable.
+    """
+
+
 # Chrome: mikrosek od 1601-01-01 → różnica do Unix epoch w mikrosekundach
 _CHROME_EPOCH_DELTA = 11_644_473_600_000_000
 
@@ -27,7 +50,14 @@ def firefox_timestamp_to_utc(microseconds: int) -> datetime:
 
 
 def sha256_file(path: Path) -> str:
-    """Calculate SHA256 of a file. Used for chain of custody."""
+    """Calculate SHA256 of a file. Used for chain of custody.
+
+    Raises ArtifactNotFoundError if `path` does not exist. (Extractors call
+    sha256_file BEFORE open_db, so a missing artifact is first noticed here.)
+    """
+    if not path.exists():
+        raise ArtifactNotFoundError(f"Artifact not found: {path}")
+
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(65_536), b""):
@@ -38,11 +68,19 @@ def sha256_file(path: Path) -> str:
 def open_db(path: Path) -> tuple[sqlite3.Connection, Path]:
     """
     Open a SQLite database read-only by copying it to a temp file first.
-    Returns (connection, temp_path) caller is responsible for cleanup.
+    Returns (connection, temp_path); caller is responsible for cleanup.
 
+    The copy is validated with `PRAGMA quick_check` before being returned, so
+    a corrupted artifact fails loudly here instead of blowing up mid-iteration
+    inside an extractor's row loop.
+
+    Raises:
+        ArtifactNotFoundError: if `path` does not exist.
+        CorruptedDatabaseError: if the file is not a valid SQLite database or
+            its disk image is malformed.
     """
     if not path.exists():
-        raise FileNotFoundError(f"Artifact not found: {path}")
+        raise ArtifactNotFoundError(f"Artifact not found: {path}")
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="bft_"))
     tmp_db = tmp_dir / path.name
@@ -54,6 +92,25 @@ def open_db(path: Path) -> tuple[sqlite3.Connection, Path]:
             shutil.copy2(wal, tmp_dir / wal.name)
 
     conn = sqlite3.connect(f"file:{tmp_db}?mode=ro", uri=True)
+
+    # Integrity gate quick_check wykrywa zarówno file is not a database jak i database disk image is malformed czego samo PRAGMA schema_version by nie złapało.
+    try:
+        check = [row[0] for row in conn.execute("PRAGMA quick_check").fetchall()]
+    except sqlite3.DatabaseError as exc:
+        conn.close()
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise CorruptedDatabaseError(
+            f"Not a valid SQLite database: {path} ({exc})"
+        ) from exc
+
+    if check != ["ok"]:
+        conn.close()
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        detail = "; ".join(check) if check else "unknown error"
+        raise CorruptedDatabaseError(
+            f"Corrupted SQLite database: {path} (quick_check: {detail})"
+        )
+
     conn.row_factory = sqlite3.Row
     return conn, tmp_dir
 

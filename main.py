@@ -22,6 +22,7 @@ from pathlib import Path
 
 from analyzers.anomaly import detect, load_iocs
 from analyzers.timeline import build_timeline, filter_by_time
+from extractors.base import ArtifactError
 from reporters.csv import export_to_csv
 from reporters.html import render_report
 
@@ -164,7 +165,12 @@ def main(argv: list[str] | None = None) -> int:
             chrome_profile=args.chrome_profile,
             firefox_profile=args.firefox_profile,
         )
+    except ArtifactError as e:
+        # ArtifactNotFoundError (missing) i CorruptedDatabaseError niosą już czytelny komunikat
+        _err(f"[!] {e}")
+        return 1
     except FileNotFoundError as e:
+        # defensywnie nietypowane FileNotFoundError spoza warstwy artefaktów
         _err(f"[!] Artifact not found: {e}")
         return 1
     _log(f"[+] Timeline: {len(events)} events")

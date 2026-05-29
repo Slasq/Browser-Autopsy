@@ -26,7 +26,7 @@ SHA_FAKE = "a" * 64
 def _make_visit(visit_time, url="https://example.com", title=None,
                 sha256=SHA_FAKE, source_file="History"):
     return SimpleNamespace(
-        visit_time=visit_time,
+        timestamp=visit_time,
         url=url,
         title=title,
         sha256=sha256,
@@ -38,7 +38,7 @@ def _make_download(start_time, url="https://example.com/file.zip",
                    target_path="/home/user/Downloads/file.zip",
                    sha256=SHA_FAKE, source_file="History"):
     return SimpleNamespace(
-        start_time=start_time,
+        timestamp=start_time,
         url=url,
         target_path=target_path,
         sha256=sha256,
@@ -49,7 +49,7 @@ def _make_download(start_time, url="https://example.com/file.zip",
 def _make_search(timestamp_utc, query="cats", engine=None,
                  sha256=SHA_FAKE, source_file="History"):
     return SimpleNamespace(
-        timestamp_utc=timestamp_utc,
+        timestamp=timestamp_utc,
         query=query,
         engine=engine,
         sha256=sha256,

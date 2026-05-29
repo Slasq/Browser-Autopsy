@@ -28,7 +28,7 @@ class TimelineEvent:
 def _visit_to_event(entry, browser: str) -> TimelineEvent:
     title = getattr(entry, "title", None)
     return TimelineEvent(
-        timestamp_utc=entry.visit_time,
+        timestamp_utc=entry.timestamp,
         event_type=f"{browser}_visit",
         browser=browser,
         source_file=entry.source_file,
@@ -41,7 +41,7 @@ def _visit_to_event(entry, browser: str) -> TimelineEvent:
 def _download_to_event(entry, browser: str) -> TimelineEvent:
     target = getattr(entry, "target_path", None)
     return TimelineEvent(
-        timestamp_utc=entry.start_time,
+        timestamp_utc=entry.timestamp,
         event_type=f"{browser}_download",
         browser=browser,
         source_file=entry.source_file,
@@ -54,7 +54,7 @@ def _download_to_event(entry, browser: str) -> TimelineEvent:
 def _search_to_event(entry, browser: str) -> TimelineEvent:
     engine = getattr(entry, "engine", None)
     return TimelineEvent(
-        timestamp_utc=entry.timestamp_utc,
+        timestamp_utc=entry.timestamp,
         event_type=f"{browser}_search",
         browser=browser,
         source_file=entry.source_file,
