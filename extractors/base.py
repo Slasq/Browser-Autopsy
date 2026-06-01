@@ -49,6 +49,20 @@ def firefox_timestamp_to_utc(microseconds: int) -> datetime:
     return datetime.fromtimestamp(microseconds / 1_000_000, tz=timezone.utc)
 
 
+def basename(path: str) -> str:
+    """Cross-platform basename for stored path STRINGS — handles both '/' and '\\'.
+
+    Browser artifacts persist whatever separator the source OS used: Chrome on
+    Windows stores 'C:\\Users\\u\\Downloads\\f.exe', Firefox stores file:// URIs
+    with '/'. We may parse those strings on a different OS (Linux CI), so we
+    cannot rely on pathlib: PurePosixPath(r'C:\\a\\b.exe').name == 'C:\\a\\b.exe'
+    on Linux, which silently breaks filename extraction and anomaly detection.
+
+    Normalises '\\' to '/' and returns the last component. Returns '' for ''.
+    """
+    return path.replace("\\", "/").rsplit("/", 1)[-1]
+
+
 def sha256_file(path: Path) -> str:
     """Calculate SHA256 of a file. Used for chain of custody.
 
