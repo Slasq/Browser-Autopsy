@@ -33,6 +33,7 @@ from urllib.parse import urlparse
 import yaml
 
 from analyzers.timeline import TimelineEvent
+from extractors.base import basename
 
 
 # Models
@@ -91,15 +92,6 @@ def load_iocs(path: Path) -> IOCs:
 
 
 # Helpers
-def _basename(path: str) -> str:
-    """Cross-platform basename — handles both '/' and '\\' separators.
-
-    Why not pathlib: PosixPath(r'C:\\a\\b.exe').name == 'C:\\a\\b.exe'
-    on Linux/CI, which silently breaks tests.
-    """
-    return path.replace("\\", "/").rsplit("/", 1)[-1]
-
-
 def _domain_from_url(url: str) -> str:
     """Extract lowercase domain from URL, stripped of 'www.' and port."""
     domain = urlparse(url).netloc.lower()
@@ -189,7 +181,7 @@ def detect_suspicious_extensions(
         # primary: bare filename; fallback: derive from target_path
         filename = event.details.get("filename", "")
         if not filename:
-            filename = _basename(event.details.get("target_path", ""))
+            filename = basename(event.details.get("target_path", ""))
         if not filename or "." not in filename:
             continue
 

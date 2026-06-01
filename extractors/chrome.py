@@ -2,6 +2,7 @@ import shutil
 from pathlib import Path
 
 from extractors.base import (
+    basename,
     chrome_timestamp_to_utc,
     open_db,
     sha256_file,
@@ -136,7 +137,7 @@ def extract_downloads(profile_path: Path) -> list[DownloadEntry]:
                     end_timestamp=chrome_timestamp_to_utc(row["end_time"] or 0),
                     url=row["final_url"] or "",
                     target_path=target,
-                    filename=Path(target).name if target else "",
+                    filename=basename(target),
                     file_size=row["total_bytes"] if row["total_bytes"] is not None else -1,
                     state=DOWNLOAD_STATE.get(row["state"], "UNKNOWN"),
                     danger_type=row["danger_type"] or 0,

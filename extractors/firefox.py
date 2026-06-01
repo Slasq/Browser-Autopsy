@@ -4,6 +4,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from extractors.base import (
+    basename,
     firefox_timestamp_to_utc,
     open_db,
     sha256_file,
@@ -14,7 +15,6 @@ from extractors.base import (
 )
 
 # Firefox History
-
 def extract_history(profile_path: Path) -> list[VisitEntry]:
     """
     Parse Firefox browsing history from the 'places.sqlite' database.
@@ -198,7 +198,7 @@ def extract_downloads(profile_path: Path) -> list[DownloadEntry]:
                 end_timestamp=end_timestamp,
                 url=g["url"] or "",
                 target_path=target_path,
-                filename=Path(target_path).name if target_path else "",
+                filename=basename(target_path),
                 file_size=file_size,
                 state=DOWNLOAD_STATE.get(meta.get("state"), "UNKNOWN"),
                 danger_type=0,  # pole Chrome-specific bo firefox nie ma odpowiednika
