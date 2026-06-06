@@ -29,7 +29,7 @@ from reporters.html import render_report
 
 # Default IOC file lives at the repo root, next to this script.
 _PROJECT_ROOT = Path(__file__).resolve().parent
-_DEFAULT_IOC_FILE = _PROJECT_ROOT / "iocs.yaml"
+_DEFAULT_IOC_FILE = _PROJECT_ROOT / "config" / "iocs.yaml"
 _DEFAULT_OUTPUT_DIR = Path("output")
 
 
