@@ -63,6 +63,48 @@ Reports land in `./output/`. Open `output/report.html` in any browser.
 
 ---
 
+## Try with sample data
+
+The repository ships with a script that generates anonymized browser artifacts
+simulating a suspicious insider-activity incident (INC-2026-03-14).
+
+**1. Generate the artifacts:**
+
+```bash
+python samples/generate.py
+```
+
+**2. Run the tool against them:**
+
+```bash
+python main.py --chrome-profile samples/chrome --firefox-profile samples/firefox --case-id INC-2026-03-14 --output-dir output/demo
+```
+
+Open `output/demo/report.html` to see the results.
+
+---
+
+## Try with sample data
+
+The repository ships with a script that generates anonymized browser artifacts
+simulating a suspicious insider-activity incident (INC-2026-03-14).
+
+**1. Generate the artifacts:**
+
+```bash
+python samples/generate.py
+```
+
+**2. Run the tool against them:**
+
+```bash
+python main.py --chrome-profile samples/chrome --firefox-profile samples/firefox --case-id INC-2026-03-14 --output-dir output/demo
+```
+
+Open `output/demo/report.html` to see the results.
+
+---
+
 ## Usage
 
 ### Full example
