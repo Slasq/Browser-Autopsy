@@ -169,6 +169,15 @@ class TestParseArgs:
         with pytest.raises(SystemExit):
             _parse_args(["--chrome-profile", "/x", "--report", "pdf"])
 
+    def test_default_output_dir(self):
+        args = _parse_args(["--chrome-profile", "/x"])
+        assert args.output_dir == Path("output")
+
+    def test_default_ioc_file_points_to_config_dir(self):
+        args = _parse_args(["--chrome-profile", "/x"])
+        assert args.ioc_file.name == "iocs.yaml"
+        assert args.ioc_file.parent.name == "config"
+
     def test_start_and_end_parsed(self):
         args = _parse_args([
             "--chrome-profile", "/x",
@@ -244,6 +253,17 @@ class TestMainHappyPath:
         rc = main(_base_argv(ioc_file, tmp_path / "out"))
         assert rc == 0
 
+    def test_firefox_only_profile(self, tmp_path, ioc_file, stub_pipeline):
+        rc = main([
+            "--firefox-profile", "/fake/ff",
+            "--ioc-file", str(ioc_file),
+            "--output-dir", str(tmp_path / "out"),
+        ])
+        assert rc == 0
+        call = stub_pipeline["build_timeline"][0]
+        assert call["chrome_profile"] is None
+        assert call["firefox_profile"] == Path("/fake/ff")
+
 
 # main() — error paths
 class TestMainErrors:
@@ -283,6 +303,17 @@ class TestMainErrors:
         assert rc == 1
         assert "not found" in capsys.readouterr().err.lower()
 
+    def test_corrupted_db_returns_1(self, capsys, tmp_path, ioc_file, monkeypatch):
+        # CorruptedDatabaseError jest ArtifactError — łapany przez pierwszy except w main()
+        from extractors.base import CorruptedDatabaseError
+        def raise_corrupted(**kwargs):
+            raise CorruptedDatabaseError("database disk image is malformed: /fake/History")
+        monkeypatch.setattr(cli_main, "build_timeline", raise_corrupted)
+
+        rc = main(_base_argv(ioc_file, tmp_path / "out"))
+        assert rc == 1
+        assert "malformed" in capsys.readouterr().err
+
     def test_invalid_iso_datetime_exits(self, ioc_file, tmp_path):
         # argparse robi sys.exit(2) na ArgumentTypeError
         with pytest.raises(SystemExit):
@@ -316,3 +347,6 @@ class TestTimeFilter:
             "--end", "2024-01-20",
         ])
         assert len(stub_pipeline["filter_by_time"]) == 1
+        call = stub_pipeline["filter_by_time"][0]
+        assert call["start"] == datetime(2024, 1, 15, tzinfo=timezone.utc)
+        assert call["end"] == datetime(2024, 1, 20, tzinfo=timezone.utc)
