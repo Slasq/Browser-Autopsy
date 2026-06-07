@@ -156,6 +156,11 @@ class TestDetectSuspiciousDomains:
         out = detect_suspicious_domains(events, sample_iocs.suspicious_domains)
         assert len(out) == 1
 
+    def test_wildcard_requires_dot_boundary(self, sample_iocs):
+        # "xonion" must NOT match "*.onion" — endswith(".onion") is False
+        events = [_ev("chrome_visit", {"url": "http://xonion/"})]
+        assert detect_suspicious_domains(events, sample_iocs.suspicious_domains) == []
+
 
 # detect_suspicious_extensions
 class TestDetectSuspiciousExtensions:

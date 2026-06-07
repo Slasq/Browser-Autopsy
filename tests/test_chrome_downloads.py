@@ -142,11 +142,35 @@ class TestExtractDownloads:
         ])
         assert extract_downloads(tmp_profile)[0].state == "COMPLETE"
 
+    def test_state_in_progress(self, tmp_profile):
+        _make_chrome_history_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "start_time": _TS_2024, "state": 0},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "IN_PROGRESS"
+
     def test_state_cancelled(self, tmp_profile):
         _make_chrome_history_with_downloads(tmp_profile, [
             {"url": "https://x.com/f.zip", "start_time": _TS_2024, "state": 2},
         ])
         assert extract_downloads(tmp_profile)[0].state == "CANCELLED"
+
+    def test_state_interrupted_3(self, tmp_profile):
+        _make_chrome_history_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "start_time": _TS_2024, "state": 3},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "INTERRUPTED"
+
+    def test_state_interrupted_4_alias(self, tmp_profile):
+        _make_chrome_history_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "start_time": _TS_2024, "state": 4},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "INTERRUPTED"
+
+    def test_state_unknown_int_becomes_unknown(self, tmp_profile):
+        _make_chrome_history_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "start_time": _TS_2024, "state": 99},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "UNKNOWN"
 
     def test_redirect_chain_uses_final_url(self, tmp_profile):
         """downloads_url_chains with 3 hops — extractor should return last URL."""
