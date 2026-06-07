@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from extractors.firefox import extract_downloads
+from extractors.firefox import _fileuri_to_path, extract_downloads
 
 # timestamps in microseconds — Firefox PRTime (used in moz_annos.dateAdded)
 _TS_2024_US = 1_704_067_200_000_000   # 2024-01-01 00:00:00 UTC
@@ -177,6 +177,67 @@ class TestFirefoxExtractDownloads:
         _make_firefox_places_with_downloads(tmp_profile, [])
         assert extract_downloads(tmp_profile) == []
 
+    def test_state_downloading(self, tmp_profile):
+        _make_firefox_places_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "state": 0, "start_ms": _TS_2024_MS},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "DOWNLOADING"
+
+    def test_state_failed(self, tmp_profile):
+        _make_firefox_places_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "state": 2, "start_ms": _TS_2024_MS},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "FAILED"
+
+    def test_state_paused(self, tmp_profile):
+        _make_firefox_places_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "state": 4, "start_ms": _TS_2024_MS},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "PAUSED"
+
+    def test_state_queued(self, tmp_profile):
+        _make_firefox_places_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "state": 5, "start_ms": _TS_2024_MS},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "QUEUED"
+
+    def test_state_blocked_parental(self, tmp_profile):
+        _make_firefox_places_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "state": 6, "start_ms": _TS_2024_MS},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "BLOCKED_PARENTAL"
+
+    def test_state_scanning(self, tmp_profile):
+        _make_firefox_places_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "state": 7, "start_ms": _TS_2024_MS},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "SCANNING"
+
+    def test_state_dirty(self, tmp_profile):
+        _make_firefox_places_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "state": 8, "start_ms": _TS_2024_MS},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "DIRTY"
+
+    def test_state_blocked_policy(self, tmp_profile):
+        _make_firefox_places_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "state": 9, "start_ms": _TS_2024_MS},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "BLOCKED_POLICY"
+
+    def test_unknown_state_becomes_unknown(self, tmp_profile):
+        _make_firefox_places_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "state": 99, "start_ms": _TS_2024_MS},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "UNKNOWN"
+
+    def test_missing_state_key_becomes_unknown(self, tmp_profile):
+        # metaData without "state" key → DOWNLOAD_STATE.get(None) → "UNKNOWN"
+        _make_firefox_places_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "start_ms": _TS_2024_MS},
+        ])
+        assert extract_downloads(tmp_profile)[0].state == "UNKNOWN"
+
     def test_corrupted_metadata_json_does_not_crash(self, tmp_profile):
         """Uszkodzony JSON w metaData nie wywala extractora — entry z wartościami domyślnymi."""
         db_path = tmp_profile / "places.sqlite"
@@ -212,3 +273,36 @@ class TestFirefoxExtractDownloads:
         entries = extract_downloads(tmp_profile)
         assert len(entries) == 1
         assert entries[0].file_size == -1
+
+
+# _fileuri_to_path — direct unit tests
+class TestFileUriToPath:
+
+    def test_empty_string_returns_empty(self):
+        assert _fileuri_to_path("") == ""
+
+    def test_posix_path(self):
+        assert _fileuri_to_path("file:///home/user/Downloads/f.zip") == "/home/user/Downloads/f.zip"
+
+    def test_windows_drive_letter_slash_stripped(self):
+        # Firefox on Windows stores file:///C:/path; urlparse gives path=/C:/...
+        # The function must strip the leading '/' before the drive letter.
+        assert _fileuri_to_path("file:///C:/Users/user/Downloads/tool.exe") == "C:/Users/user/Downloads/tool.exe"
+
+    def test_windows_path_with_subdirectories(self):
+        result = _fileuri_to_path("file:///D:/MyDocs/report.pdf")
+        assert result == "D:/MyDocs/report.pdf"
+
+    def test_percent_encoded_spaces_decoded(self):
+        result = _fileuri_to_path("file:///home/user/My%20Files/doc.pdf")
+        assert result == "/home/user/My Files/doc.pdf"
+
+    def test_percent_encoded_utf8_decoded(self):
+        result = _fileuri_to_path("file:///home/user/z%C5%82o%C5%9Bliwy.exe")
+        assert "złośliwy" in result
+
+    def test_posix_path_no_slash_stripped(self):
+        # "/home/..." — path[2] is 'o', not ':', so no stripping
+        result = _fileuri_to_path("file:///tmp/a.bin")
+        assert result.startswith("/")
+        assert result == "/tmp/a.bin"
