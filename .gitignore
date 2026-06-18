@@ -150,12 +150,17 @@ activemq-data/
 # Environments
 .env
 .envrc
-.venv
-env/
+
+# Virtual environments (venv, uv, virtualenv, conda...)
+.venv/
+.venv*/
 venv/
+venv*/
+env/
 ENV/
 env.bak/
 venv.bak/
+.virtualenvs/
 
 # Spyder project settings
 .spyderproject
