@@ -49,7 +49,7 @@ def _build_context(
     # Anomalies sorted for the dedicated table (severity desc, then time asc)
     anomalies_sorted = sorted(
         anomalies,
-        key=lambda a: (_SEVERITY_RANK.get(a.severity, 99), a.event.timestamp_utc),
+        key=lambda a: (_SEVERITY_RANK.get(a.severity, 99), a.event.timestamp_utc is None, a.event.timestamp_utc),
     )
 
     # Stats — Counter is a dict subclass, jinja can iterate it directly

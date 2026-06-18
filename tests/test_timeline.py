@@ -274,3 +274,50 @@ class TestFilterByTime:
     def test_start_greater_than_end_raises(self, sample_events):
         with pytest.raises(ValueError):
             filter_by_time(sample_events, start=TS_JAN3, end=TS_JAN1)
+
+
+# build_timeline: None timestamps (visit_time=0 → timestamp=None)
+class TestBuildTimelineNoneTimestamps:
+    """Extraktory mogą zwrócić wpisy z timestamp=None (visit_time=0).
+    build_timeline musi je posortować bez TypeError — None-timestampy idą na koniec.
+    """
+
+    def test_none_timestamp_events_sorted_last(self, monkeypatch):
+        none_visit = _make_visit(None, url="https://no-time.example")
+        real_visit = _make_visit(TS_JAN1, url="https://has-time.example")
+
+        monkeypatch.setattr(timeline.chrome, "extract_history",
+                            lambda p: [none_visit, real_visit])
+        monkeypatch.setattr(timeline.chrome, "extract_downloads", lambda p: [])
+        monkeypatch.setattr(timeline.chrome, "extract_searches", lambda p: [])
+
+        events = build_timeline(chrome_profile=Path("/fake"))
+        assert events[0].details["url"] == "https://has-time.example"
+        assert events[-1].details["url"] == "https://no-time.example"
+
+    def test_all_none_timestamps_does_not_crash(self, monkeypatch):
+        visits = [_make_visit(None, url=f"https://no-time-{i}.example") for i in range(3)]
+        monkeypatch.setattr(timeline.chrome, "extract_history", lambda p: visits)
+        monkeypatch.setattr(timeline.chrome, "extract_downloads", lambda p: [])
+        monkeypatch.setattr(timeline.chrome, "extract_searches", lambda p: [])
+
+        events = build_timeline(chrome_profile=Path("/fake"))
+        assert len(events) == 3
+
+    def test_mixed_none_and_valid_across_browsers(self, monkeypatch):
+        monkeypatch.setattr(timeline.chrome, "extract_history",
+                            lambda p: [_make_visit(None, url="chrome-no-time")])
+        monkeypatch.setattr(timeline.chrome, "extract_downloads", lambda p: [])
+        monkeypatch.setattr(timeline.chrome, "extract_searches", lambda p: [])
+        monkeypatch.setattr(timeline.firefox, "extract_history",
+                            lambda p: [_make_visit(TS_JAN1, url="firefox-has-time")])
+        monkeypatch.setattr(timeline.firefox, "extract_downloads", lambda p: [])
+        monkeypatch.setattr(timeline.firefox, "extract_searches", lambda p: [])
+
+        events = build_timeline(
+            chrome_profile=Path("/fake/chrome"),
+            firefox_profile=Path("/fake/firefox"),
+        )
+        assert len(events) == 2
+        assert events[0].details["url"] == "firefox-has-time"
+        assert events[1].details["url"] == "chrome-no-time"

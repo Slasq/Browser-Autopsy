@@ -7,6 +7,8 @@ import pytest
 
 from analyzers.anomaly import (
     IOCs,
+    _domain_from_url,
+    _domain_matches,
     detect,
     detect_suspicious_domains,
     detect_suspicious_extensions,
@@ -319,3 +321,94 @@ class TestDetectOrchestrator:
         ]
         out = detect(events, sample_iocs)
         assert len(out) == 3
+
+    def test_none_timestamp_events_do_not_crash(self, sample_iocs):
+        """Eventy z timestamp=None (visit_time=0 w bazie) muszą nie crashować detect()."""
+        ev_none = TimelineEvent(
+            timestamp_utc=None,
+            event_type="chrome_visit",
+            browser="chrome",
+            source_file="/fake",
+            source_sha256="0" * 64,
+            summary="no time",
+            details={"url": "https://bad-c2.com/"},
+        )
+        ev_normal = _ev("chrome_download", {"filename": "x.exe"},
+                        ts=datetime(2024, 1, 2, tzinfo=timezone.utc))
+        out = detect([ev_none, ev_normal], sample_iocs)
+        assert len(out) == 2
+        # None-timestamp anomaly idzie na koniec
+        assert out[-1].event.timestamp_utc is None
+
+    def test_none_timestamp_anomaly_sorted_last(self, sample_iocs):
+        """Anomalia z timestamp=None trafia za te z prawdziwym timestampem."""
+        def _none_visit(url):
+            return TimelineEvent(
+                timestamp_utc=None,
+                event_type="chrome_visit",
+                browser="chrome",
+                source_file="/fake",
+                source_sha256="0" * 64,
+                summary="no time",
+                details={"url": url},
+            )
+
+        events = [
+            _ev("chrome_visit", {"url": "https://bad-c2.com/"},
+                ts=datetime(2024, 1, 5, tzinfo=timezone.utc)),
+            _none_visit("https://bad-c2.com/"),
+            _ev("chrome_visit", {"url": "https://bad-c2.com/"},
+                ts=datetime(2024, 1, 1, tzinfo=timezone.utc)),
+        ]
+        out = detect(events, sample_iocs)
+        assert out[-1].event.timestamp_utc is None
+
+
+# _domain_from_url
+class TestDomainFromUrl:
+
+    @pytest.mark.parametrize("url, expected_domain", [
+        ("https://example.com/path",        "example.com"),
+        ("http://www.example.com/",         "example.com"),   # www stripped
+        ("https://sub.example.com/",        "sub.example.com"),
+        ("https://example.com:8443/",       "example.com"),   # port stripped
+        ("http://www.bad-c2.com:8080/foo",  "bad-c2.com"),    # www + port
+        ("https://EXAMPLE.COM/",            "example.com"),   # lowercased
+        ("not-a-url",                       ""),              # bez schematu
+        ("",                                ""),
+    ])
+    def test_extracts_domain(self, url, expected_domain):
+        assert _domain_from_url(url) == expected_domain
+
+
+# _domain_matches
+class TestDomainMatches:
+
+    def test_exact_match(self):
+        assert _domain_matches("bad-c2.com", ["bad-c2.com", "other.com"]) == "bad-c2.com"
+
+    def test_no_match(self):
+        assert _domain_matches("clean.com", ["bad-c2.com", "other.com"]) is None
+
+    def test_wildcard_suffix_match(self):
+        assert _domain_matches("abc.onion", ["*.onion"]) == "*.onion"
+
+    def test_wildcard_requires_dot_boundary(self):
+        # "xonion" NIE pasuje do "*.onion" — nie ma '.onion' na końcu
+        assert _domain_matches("xonion", ["*.onion"]) is None
+
+    def test_wildcard_exact_tld_without_subdomain(self):
+        # ".onion" w domenie to też sufiks ".onion"
+        assert _domain_matches(".onion", ["*.onion"]) == "*.onion"
+
+    def test_exact_entry_does_not_match_subdomain(self):
+        # "pastebin.com" w IOC — sub.pastebin.com NIE pasuje
+        assert _domain_matches("sub.pastebin.com", ["pastebin.com"]) is None
+
+    def test_first_matching_ioc_returned(self):
+        # gdy pasuje kilka IOC zwracamy pierwszą
+        result = _domain_matches("abc.onion", ["*.onion", "abc.onion"])
+        assert result == "*.onion"
+
+    def test_empty_ioc_list(self):
+        assert _domain_matches("example.com", []) is None

@@ -97,7 +97,7 @@ def build_timeline(
         events.extend(_search_to_event(e, "firefox")
                       for e in firefox.extract_searches(firefox_profile))
 
-    events.sort(key=lambda ev: ev.timestamp_utc)
+    events.sort(key=lambda ev: (ev.timestamp_utc is None, ev.timestamp_utc))
     return events
 
 

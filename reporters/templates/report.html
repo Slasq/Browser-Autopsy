@@ -483,7 +483,7 @@ tr.has-anomaly td:first-child {
         <tbody>
             {% for event, event_anomalies in events_with_anomalies %}
             <tr {% if event_anomalies %}class="has-anomaly"{% endif %}>
-                <td><span class="mono">{{ event.timestamp_utc.isoformat() }}</span></td>
+                <td><span class="mono">{{ event.timestamp_utc.isoformat() if event.timestamp_utc is not none else "" }}</span></td>
                 <td>{{ event.browser }}</td>
                 <td><code>{{ event.event_type }}</code></td>
                 <td>{{ event.summary }}</td>

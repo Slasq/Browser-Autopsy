@@ -261,3 +261,49 @@ class TestRenderReport:
         assert "</html>" in html
         assert "<head>" in html and "</head>" in html
         assert "<body>" in html and "</body>" in html
+
+    def test_none_timestamp_event_does_not_crash_render(self, tmp_path):
+        """Event z timestamp=None (visit_time=0) nie crashuje rendera raportu."""
+        ev_none = TimelineEvent(
+            timestamp_utc=None,
+            event_type="chrome_visit",
+            browser="chrome",
+            source_file="/fake/History",
+            source_sha256="a" * 64,
+            summary="visit without timestamp",
+            details={"url": "https://example.com"},
+        )
+        ev_normal = _ev(ts=datetime(2024, 1, 1, tzinfo=timezone.utc))
+        out = tmp_path / "report.html"
+        render_report([ev_normal, ev_none], [], out, case_id="X")
+        assert out.exists()
+        assert out.stat().st_size > 0
+
+    def test_none_timestamp_anomaly_does_not_crash_build_context(self):
+        """Anomalia z timestamp=None nie crashuje _build_context (sort po severity+time)."""
+        ev_none = TimelineEvent(
+            timestamp_utc=None,
+            event_type="chrome_download",
+            browser="chrome",
+            source_file="/fake",
+            source_sha256="a" * 64,
+            summary="no time",
+            details={"filename": "x.exe"},
+        )
+        ev_normal = _ev(ts=datetime(2024, 1, 1, tzinfo=timezone.utc))
+        a_none = _anomaly(event=ev_none, severity="high")
+        a_normal = _anomaly(event=ev_normal, severity="high")
+        ctx = _build_context([ev_normal, ev_none], [a_normal, a_none], case_id="X")
+        sorted_anomalies = ctx["anomalies_sorted"]
+        assert len(sorted_anomalies) == 2
+        # None-timestamp idzie po prawidłowym timestampie
+        assert sorted_anomalies[-1].event.timestamp_utc is None
+
+    def test_unknown_severity_sorts_after_low(self, tmp_path):
+        """Anomalia z nieznaną severity ląduje na samym końcu listy (rank=99)."""
+        ev = _ev(ts=datetime(2024, 1, 1, tzinfo=timezone.utc))
+        a_low = _anomaly(event=ev, severity="low")
+        a_unknown = _anomaly(event=ev, severity="weird_severity")
+        ctx = _build_context([], [a_low, a_unknown], case_id="X")
+        sorted_severities = [a.severity for a in ctx["anomalies_sorted"]]
+        assert sorted_severities == ["low", "weird_severity"]

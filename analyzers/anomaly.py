@@ -253,5 +253,5 @@ def detect(events: list[TimelineEvent], iocs: IOCs) -> list[Anomaly]:
     anomalies.extend(detect_suspicious_domains(events, iocs.suspicious_domains))
     anomalies.extend(detect_suspicious_extensions(events, iocs.suspicious_extensions))
     anomalies.extend(detect_suspicious_keywords(events, iocs.suspicious_keywords))
-    anomalies.sort(key=lambda a: a.event.timestamp_utc)
+    anomalies.sort(key=lambda a: (a.event.timestamp_utc is None, a.event.timestamp_utc))
     return anomalies

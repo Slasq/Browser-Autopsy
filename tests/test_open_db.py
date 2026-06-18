@@ -1,6 +1,7 @@
 import os
 import shutil
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -113,3 +114,79 @@ class TestValidDatabase:
         finally:
             conn.close()
             shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_wal_file_copied_alongside_db(self, tmp_path):
+        """Jeśli obok bazy jest plik -wal, open_db musi go skopiować do tempdir."""
+        p = tmp_path / "History"
+        _make_valid_db(p)
+        wal = Path(str(p) + "-wal")
+        wal.write_bytes(b"\x00" * 32)  # fake WAL — wystarczy żeby sprawdzić kopię
+        conn, tmp_dir = open_db(p)
+        try:
+            assert (tmp_dir / "History-wal").exists()
+        finally:
+            conn.close()
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_shm_file_copied_alongside_db(self, tmp_path):
+        """Analogicznie dla pliku -shm (shared memory)."""
+        p = tmp_path / "places.sqlite"
+        _make_valid_db(p)
+        shm = Path(str(p) + "-shm")
+        shm.write_bytes(b"\x00" * 32)
+        conn, tmp_dir = open_db(p)
+        try:
+            assert (tmp_dir / "places.sqlite-shm").exists()
+        finally:
+            conn.close()
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_open_db_works_without_wal(self, tmp_path):
+        """Brak pliku WAL nie powoduje błędu — open_db go pomija."""
+        p = tmp_path / "History"
+        _make_valid_db(p)
+        conn, tmp_dir = open_db(p)
+        try:
+            assert not (tmp_dir / "History-wal").exists()
+        finally:
+            conn.close()
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+class TestSha256File:
+
+    def test_returns_hex_string_of_length_64(self, tmp_path):
+        p = tmp_path / "f.bin"
+        p.write_bytes(b"hello")
+        digest = sha256_file(p)
+        assert len(digest) == 64
+        assert all(c in "0123456789abcdef" for c in digest)
+
+    def test_known_content_matches_expected_hash(self, tmp_path):
+        import hashlib
+        content = b"browser-autopsy test content"
+        p = tmp_path / "f.bin"
+        p.write_bytes(content)
+        expected = hashlib.sha256(content).hexdigest()
+        assert sha256_file(p) == expected
+
+    def test_empty_file_returns_sha256_of_empty(self, tmp_path):
+        import hashlib
+        p = tmp_path / "empty.bin"
+        p.write_bytes(b"")
+        assert sha256_file(p) == hashlib.sha256(b"").hexdigest()
+
+    def test_two_identical_files_same_hash(self, tmp_path):
+        content = b"same content"
+        a = tmp_path / "a.bin"
+        b = tmp_path / "b.bin"
+        a.write_bytes(content)
+        b.write_bytes(content)
+        assert sha256_file(a) == sha256_file(b)
+
+    def test_different_content_different_hash(self, tmp_path):
+        a = tmp_path / "a.bin"
+        b = tmp_path / "b.bin"
+        a.write_bytes(b"aaa")
+        b.write_bytes(b"bbb")
+        assert sha256_file(a) != sha256_file(b)

@@ -61,7 +61,7 @@ def export_timeline_to_csv(
         for event in events:
             details = event.details or {}
             writer.writerow({
-                "timestamp_utc": event.timestamp_utc.isoformat(),
+                "timestamp_utc": event.timestamp_utc.isoformat() if event.timestamp_utc is not None else "",
                 "event_type": event.event_type,
                 "browser": event.browser,
                 "source_file": event.source_file,

@@ -146,3 +146,17 @@ class TestExtractHistory:
         ])
         entry = extract_history(tmp_profile)[0]
         assert entry.transition == 1
+
+    def test_empty_database_returns_empty_list(self, tmp_profile):
+        _make_chrome_history(tmp_profile, [])
+        assert extract_history(tmp_profile) == []
+
+    def test_multiple_visits_same_url_produce_separate_entries(self, tmp_profile):
+        """To sam URL odwiedzony dwukrotnie = dwa osobne VisitEntry."""
+        _make_chrome_history(tmp_profile, [
+            {"url": "https://example.com", "visit_time": _TS_2024},
+            {"url": "https://example.com", "visit_time": _TS_JUNE},
+        ])
+        entries = extract_history(tmp_profile)
+        assert len(entries) == 2
+        assert all(e.url == "https://example.com" for e in entries)

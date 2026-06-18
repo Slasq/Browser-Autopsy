@@ -44,6 +44,14 @@ against a configurable IOC set, and produces HTML/CSV reports.
 
 Requires Python **3.10+**.
 
+**Recommended — [uv](https://github.com/astral-sh/uv) (installs deps into an isolated `.venv` automatically):**
+
+```bash
+uv sync
+```
+
+**Or with pip:**
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -53,6 +61,10 @@ pip install -r requirements.txt
 ## Quick start
 
 ```bash
+# uv
+uv run python main.py --chrome-profile /path/to/chrome/Default --case-id INC-2024-001
+
+# pip / system Python
 python main.py --chrome-profile /path/to/chrome/Default --case-id INC-2024-001
 ```
 
@@ -63,31 +75,11 @@ Reports land in `./output/`. Open `output/report.html` in any browser.
 
 ---
 
-## Try with sample data
+## Demo — sample data
 
-The repository ships with a script that generates anonymized browser artifacts
-simulating a suspicious insider-activity incident (INC-2026-03-14).
-
-**1. Generate the artifacts:**
-
-```bash
-python samples/generate.py
-```
-
-**2. Run the tool against them:**
-
-```bash
-python main.py --chrome-profile samples/chrome --firefox-profile samples/firefox --case-id INC-2026-03-14 --output-dir output/demo
-```
-
-Open `output/demo/report.html` to see the results.
-
----
-
-## Try with sample data
-
-The repository ships with a script that generates anonymized browser artifacts
-simulating a suspicious insider-activity incident (INC-2026-03-14).
+The repository ships with a script that generates synthetic browser artifacts
+simulating a suspicious insider-activity scenario (case `INC-2026-03-14`).
+Use it to see the tool in action without needing real browser profiles.
 
 **1. Generate the artifacts:**
 
@@ -95,13 +87,28 @@ simulating a suspicious insider-activity incident (INC-2026-03-14).
 python samples/generate.py
 ```
 
+This creates `samples/chrome/History` and `samples/firefox/places.sqlite`
+with a mix of benign and suspicious activity (malware searches, downloads
+from flagged domains, etc.).
+
 **2. Run the tool against them:**
 
 ```bash
-python main.py --chrome-profile samples/chrome --firefox-profile samples/firefox --case-id INC-2026-03-14 --output-dir output/demo
+python main.py \
+    --chrome-profile  samples/chrome \
+    --firefox-profile samples/firefox \
+    --case-id         INC-2026-03-14 \
+    --output-dir      output/demo
 ```
 
-Open `output/demo/report.html` to see the results.
+**3. Open the report:**
+
+```
+output/demo/report.html
+```
+
+> A pre-rendered version is included in the repo root as `report_demo.html`
+> — no setup needed to preview the output format.
 
 ---
 
@@ -215,10 +222,28 @@ Browser-Autopsy/
 
 ## Testing
 
+The project has an extensive pytest suite covering all layers of the pipeline:
+
+| Module | What's tested |
+|---|---|
+| `test_base.py` | timestamp converters, `basename`, `_extract_query`, `sha256_file` |
+| `test_open_db.py` | `open_db` — missing file, corrupted DB, WAL/SHM copy, temp-dir cleanup |
+| `test_chrome_history/downloads/search.py` | Chrome extractor end-to-end against real SQLite schemas |
+| `test_firefox_history/downloads/search.py` | Firefox extractor end-to-end, incl. annotation-based downloads |
+| `test_timeline.py` | adapter mapping, `build_timeline`, `filter_by_time`, None-timestamp edge cases |
+| `test_anomaly.py` | `load_iocs`, all three detectors, `_domain_from_url`, `_domain_matches` |
+| `test_csv_reporter.py` | CSV schema, BOM, encoding, None-timestamp rows |
+| `test_html_reporter.py` | context builder, Jinja2 render, XSS escaping, None-timestamp |
+| `test_main.py` | CLI parsing, exit codes, orchestrator plumbing |
+
 ```bash
-pytest                          # full suite
-pytest tests/test_timeline.py   # one module
-pytest -v -k chrome             # only chrome-related tests
+# uv
+uv run pytest                          # full suite
+uv run pytest tests/test_timeline.py   # one module
+uv run pytest -v -k chrome             # only chrome-related tests
+
+# pip / system Python
+pytest
 ```
 
 ---

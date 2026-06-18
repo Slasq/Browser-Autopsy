@@ -194,3 +194,44 @@ class TestExportToCsv:
         assert anomalies_path.exists()
         assert _read_csv(timeline_path) == []
         assert _read_csv(anomalies_path) == []
+
+
+# None-timestamp edge cases
+class TestNoneTimestamp:
+
+    def test_export_timeline_none_timestamp_does_not_crash(self, tmp_path):
+        """Event z timestamp=None (visit_time=0 w bazie) nie crashuje CSV exportu."""
+        ev = TimelineEvent(
+            timestamp_utc=None,
+            event_type="chrome_visit",
+            browser="chrome",
+            source_file="/fake/History",
+            source_sha256="a" * 64,
+            summary="visit without timestamp",
+            details={"url": "https://example.com"},
+        )
+        out = export_timeline_to_csv([ev], tmp_path / "t.csv")
+        rows = _read_csv(out)
+        assert len(rows) == 1
+        assert rows[0]["timestamp_utc"] == ""
+
+    def test_export_timeline_mixed_timestamps(self, tmp_path):
+        """Miks None i prawidłowych timestamp — oba rekordy trafiają do CSV."""
+        ts = datetime(2024, 3, 15, tzinfo=timezone.utc)
+        ev_normal = _ev(ts=ts)
+        ev_none = TimelineEvent(
+            timestamp_utc=None,
+            event_type="chrome_visit",
+            browser="chrome",
+            source_file="/fake/History",
+            source_sha256="b" * 64,
+            summary="no timestamp",
+            details={},
+        )
+        out = export_timeline_to_csv([ev_normal, ev_none], tmp_path / "t.csv")
+        rows = _read_csv(out)
+        assert len(rows) == 2
+        normal_row = next(r for r in rows if r["timestamp_utc"] != "")
+        none_row = next(r for r in rows if r["timestamp_utc"] == "")
+        assert "2024-03-15" in normal_row["timestamp_utc"]
+        assert none_row["timestamp_utc"] == ""
