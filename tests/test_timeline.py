@@ -169,6 +169,30 @@ class TestBuildTimelineChromeOnly:
     def test_empty_chrome_returns_empty_list(self, empty_extractors):
         assert build_timeline(chrome_profile=Path("/fake")) == []
 
+    def test_chrome_browser_name_labels_events(self, monkeypatch):
+        monkeypatch.setattr(timeline.chrome, "extract_history",
+                            lambda p: [_make_visit(TS_JAN1)])
+        monkeypatch.setattr(timeline.chrome, "extract_downloads", lambda p: [])
+        monkeypatch.setattr(timeline.chrome, "extract_searches", lambda p: [])
+
+        events = build_timeline(chrome_profile=Path("/fake"), chrome_browser_name="edge")
+        assert len(events) == 1
+        assert events[0].browser == "edge"
+        assert events[0].event_type == "edge_visit"
+
+    def test_brave_browser_name_propagates_to_all_event_types(self, monkeypatch):
+        monkeypatch.setattr(timeline.chrome, "extract_history",
+                            lambda p: [_make_visit(TS_JAN1)])
+        monkeypatch.setattr(timeline.chrome, "extract_downloads",
+                            lambda p: [_make_download(TS_JAN2)])
+        monkeypatch.setattr(timeline.chrome, "extract_searches",
+                            lambda p: [_make_search(TS_JAN3)])
+
+        events = build_timeline(chrome_profile=Path("/fake"), chrome_browser_name="brave")
+        types = {e.event_type for e in events}
+        assert types == {"brave_visit", "brave_download", "brave_search"}
+        assert all(e.browser == "brave" for e in events)
+
 
 class TestBuildTimelineFirefoxOnly:
     def test_returns_firefox_events_only(self, monkeypatch):

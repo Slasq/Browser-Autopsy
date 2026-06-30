@@ -23,6 +23,7 @@ from pathlib import Path
 from analyzers.anomaly import detect, load_iocs
 from analyzers.timeline import build_timeline, filter_by_time
 from extractors.base import ArtifactError
+from extractors.chrome import CHROMIUM_BROWSERS
 from reporters.csv import export_to_csv
 from reporters.html import render_report
 
@@ -75,11 +76,21 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     profiles = parser.add_argument_group("profiles (at least one required)")
     profiles.add_argument(
         "--chrome-profile", type=Path, default=None, metavar="PATH",
-        help="Path to a Chrome profile directory (contains 'History').",
+        help="Path to a Chromium-family profile directory (contains 'History').",
+    )
+    profiles.add_argument(
+        "--chrome-browser",
+        choices=list(CHROMIUM_BROWSERS),
+        default="chrome",
+        metavar="NAME",
+        help=(
+            f"Browser label for the Chromium profile "
+            f"({', '.join(CHROMIUM_BROWSERS)}). Default: chrome."
+        ),
     )
     profiles.add_argument(
         "--firefox-profile", type=Path, default=None, metavar="PATH",
-        help="Path to a Firefox profile directory (contains 'places.sqlite').",
+        help="Path to a Gecko-family profile directory (contains 'places.sqlite').",
     )
 
     # Output
@@ -164,6 +175,7 @@ def main(argv: list[str] | None = None) -> int:
         events = build_timeline(
             chrome_profile=args.chrome_profile,
             firefox_profile=args.firefox_profile,
+            chrome_browser_name=args.chrome_browser,
         )
     except ArtifactError as e:
         # ArtifactNotFoundError (missing) i CorruptedDatabaseError niosą już czytelny komunikat

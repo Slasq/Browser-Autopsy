@@ -169,6 +169,10 @@ class TestParseArgs:
         with pytest.raises(SystemExit):
             _parse_args(["--chrome-profile", "/x", "--report", "pdf"])
 
+    def test_invalid_chrome_browser_exits(self):
+        with pytest.raises(SystemExit):
+            _parse_args(["--chrome-profile", "/x", "--chrome-browser", "netscape"])
+
     def test_default_output_dir(self):
         args = _parse_args(["--chrome-profile", "/x"])
         assert args.output_dir == Path("output")
@@ -252,6 +256,21 @@ class TestMainHappyPath:
         # jeśli load_iocs by się wywaliło na braku pliku → rc=1; tu chcemy rc=0
         rc = main(_base_argv(ioc_file, tmp_path / "out"))
         assert rc == 0
+
+    def test_chrome_browser_default_is_chrome(self, tmp_path, ioc_file, stub_pipeline):
+        main(_base_argv(ioc_file, tmp_path / "out"))
+        call = stub_pipeline["build_timeline"][0]
+        assert call["chrome_browser_name"] == "chrome"
+
+    def test_chrome_browser_edge_passed_to_timeline(self, tmp_path, ioc_file, stub_pipeline):
+        main(_base_argv(ioc_file, tmp_path / "out") + ["--chrome-browser", "edge"])
+        call = stub_pipeline["build_timeline"][0]
+        assert call["chrome_browser_name"] == "edge"
+
+    def test_chrome_browser_brave_passed_to_timeline(self, tmp_path, ioc_file, stub_pipeline):
+        main(_base_argv(ioc_file, tmp_path / "out") + ["--chrome-browser", "brave"])
+        call = stub_pipeline["build_timeline"][0]
+        assert call["chrome_browser_name"] == "brave"
 
     def test_firefox_only_profile(self, tmp_path, ioc_file, stub_pipeline):
         rc = main([

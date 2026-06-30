@@ -68,6 +68,7 @@ def _search_to_event(entry, browser: str) -> TimelineEvent:
 def build_timeline(
     chrome_profile: Path | None = None,
     firefox_profile: Path | None = None,
+    chrome_browser_name: str = "chrome",
 ) -> list[TimelineEvent]:
     """
     Build a full timeline from the provided profiles.
@@ -75,6 +76,12 @@ def build_timeline(
     At least one profile must be supplied. A missing artifact file in a given
     profile (e.g. no `places.sqlite`) is propagated as `FileNotFoundError`
     from the extractor — timeline does NOT swallow it silently.
+
+    Args:
+        chrome_profile: Path to a Chromium-family profile directory.
+        firefox_profile: Path to a Gecko-family profile directory.
+        chrome_browser_name: Browser label used in event_type / browser fields
+            (e.g. "edge", "brave"). Defaults to "chrome".
     """
     if chrome_profile is None and firefox_profile is None:
         raise ValueError("at least one of chrome_profile / firefox_profile required")
@@ -82,11 +89,11 @@ def build_timeline(
     events: list[TimelineEvent] = []
 
     if chrome_profile is not None:
-        events.extend(_visit_to_event(e, "chrome")
+        events.extend(_visit_to_event(e, chrome_browser_name)
                       for e in chrome.extract_history(chrome_profile))
-        events.extend(_download_to_event(e, "chrome")
+        events.extend(_download_to_event(e, chrome_browser_name)
                       for e in chrome.extract_downloads(chrome_profile))
-        events.extend(_search_to_event(e, "chrome")
+        events.extend(_search_to_event(e, chrome_browser_name)
                       for e in chrome.extract_searches(chrome_profile))
 
     if firefox_profile is not None:
