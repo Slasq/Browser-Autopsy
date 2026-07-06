@@ -21,13 +21,16 @@ CHROMIUM_BROWSERS: tuple[str, ...] = (
 )
 
 
+def _env_dir(var: str, default: Path) -> Path:
+    # Path("") is truthy (== Path(".")), so a plain `or` fallback never fires —
+    # check the env var itself before building a Path from it.
+    value = os.environ.get(var)
+    return Path(value).expanduser() if value else default
+
+
 def _chromium_paths_windows() -> dict[str, Path]:
-    local = Path(os.environ.get("LOCALAPPDATA", "")).expanduser() or (
-        Path.home() / "AppData" / "Local"
-    )
-    roaming = Path(os.environ.get("APPDATA", "")).expanduser() or (
-        Path.home() / "AppData" / "Roaming"
-    )
+    local = _env_dir("LOCALAPPDATA", Path.home() / "AppData" / "Local")
+    roaming = _env_dir("APPDATA", Path.home() / "AppData" / "Roaming")
     return {
         "chrome":   local / "Google" / "Chrome" / "User Data" / "Default",
         "edge":     local / "Microsoft" / "Edge" / "User Data" / "Default",
