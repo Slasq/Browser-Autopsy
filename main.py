@@ -24,8 +24,11 @@ from analyzers.anomaly import detect, load_iocs
 from analyzers.timeline import build_timeline, filter_by_time
 from extractors.base import ArtifactError
 from extractors.chrome import CHROMIUM_BROWSERS
+from extractors.discovery import discover_profiles
+from extractors.firefox import GECKO_BROWSERS
 from reporters.csv import export_to_csv
 from reporters.html import render_report
+from reporters.json import export_to_json
 
 
 # Default IOC file lives at the repo root, next to this script.
@@ -75,6 +78,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # Profiles
     profiles = parser.add_argument_group("profiles (at least one required)")
     profiles.add_argument(
+        "--input", type=Path, default=None, metavar="DIR",
+        help="Evidence directory to scan for browser profiles (any depth). "
+             "Chromium profiles are recognised by 'History', Gecko by "
+             "'places.sqlite'. May be combined with the explicit "
+             "--chrome-profile/--firefox-profile flags.",
+    )
+    profiles.add_argument(
         "--chrome-profile", type=Path, default=None, metavar="PATH",
         help="Path to a Chromium-family profile directory (contains 'History').",
     )
@@ -92,6 +102,16 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--firefox-profile", type=Path, default=None, metavar="PATH",
         help="Path to a Gecko-family profile directory (contains 'places.sqlite').",
     )
+    profiles.add_argument(
+        "--firefox-browser",
+        choices=list(GECKO_BROWSERS),
+        default="firefox",
+        metavar="NAME",
+        help=(
+            f"Browser label for the Gecko profile "
+            f"({', '.join(GECKO_BROWSERS)}). Default: firefox."
+        ),
+    )
 
     # Output
     output = parser.add_argument_group("output")
@@ -100,8 +120,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Directory for generated reports (default: ./output).",
     )
     output.add_argument(
-        "--report", choices=["html", "csv", "both"], default="both",
-        help="Report format (default: both).",
+        "--report", choices=["html", "csv", "json", "both", "all"],
+        default="both",
+        help="Report format: html, csv, json, both (= html+csv, default) "
+             "or all.",
     )
     output.add_argument(
         "--case-id", default="UNSPECIFIED", metavar="ID",
@@ -115,6 +137,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--ioc-file", type=Path, default=_DEFAULT_IOC_FILE, metavar="PATH",
         help=f"Path to IOC YAML config (default: {_DEFAULT_IOC_FILE.name} "
              "at repo root).",
+    )
+    detection.add_argument(
+        "--wal-recover", action="store_true",
+        help="Diff each history database against its SQLite WAL to recover "
+             "deleted-but-not-yet-checkpointed records "
+             "(events tagged *_visit_recovered).",
     )
 
     # Time filter
@@ -145,8 +173,10 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
 
     # Validation that argparse itself can't express
-    if args.chrome_profile is None and args.firefox_profile is None:
-        _err("[!] At least one of --chrome-profile / --firefox-profile is required.")
+    if args.input is None and args.chrome_profile is None \
+            and args.firefox_profile is None:
+        _err("[!] At least one of --input / --chrome-profile / "
+             "--firefox-profile is required.")
         return 2
 
     if args.start is not None and args.end is not None and args.start > args.end:
@@ -158,6 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     _log(" Browser-Autopsy")
     _log("=" * 64)
     _log(f"[*] Case ID:         {args.case_id}")
+    _log(f"[*] Input dir:       {args.input or '(none)'}")
     _log(f"[*] Chrome profile:  {args.chrome_profile or '(none)'}")
     _log(f"[*] Firefox profile: {args.firefox_profile or '(none)'}")
     _log(f"[*] IOC file:        {args.ioc_file}")
@@ -169,14 +200,50 @@ def main(argv: list[str] | None = None) -> int:
         _log(f"[*] Time window:     {window_start}  ..  {window_end}")
     _log("")
 
+    # 0 Discover profiles in the evidence directory (multi-profile mode)
+    discovered = []
+    if args.input is not None:
+        try:
+            discovered = discover_profiles(args.input)
+        except FileNotFoundError as e:
+            _err(f"[!] {e}")
+            return 1
+        if not discovered and args.chrome_profile is None \
+                and args.firefox_profile is None:
+            _err(f"[!] No browser profiles found under {args.input}")
+            return 1
+        for prof in discovered:
+            _log(f"[*] Discovered profile: {prof.browser} ({prof.engine})"
+                 f" -> {prof.path}")
+
     # 1 Build timeline
     _log("[*] Building timeline...")
     try:
-        events = build_timeline(
-            chrome_profile=args.chrome_profile,
-            firefox_profile=args.firefox_profile,
-            chrome_browser_name=args.chrome_browser,
-        )
+        events = []
+        if args.chrome_profile is not None or args.firefox_profile is not None:
+            events.extend(build_timeline(
+                chrome_profile=args.chrome_profile,
+                firefox_profile=args.firefox_profile,
+                chrome_browser_name=args.chrome_browser,
+                firefox_browser_name=args.firefox_browser,
+                wal_recover=args.wal_recover,
+            ))
+        for prof in discovered:
+            if prof.engine == "chromium":
+                events.extend(build_timeline(
+                    chrome_profile=prof.path,
+                    chrome_browser_name=prof.browser,
+                    wal_recover=args.wal_recover,
+                ))
+            else:
+                events.extend(build_timeline(
+                    firefox_profile=prof.path,
+                    firefox_browser_name=prof.browser,
+                    wal_recover=args.wal_recover,
+                ))
+        # each build_timeline call sorts its own slice — merged list needs one
+        # global re-sort
+        events.sort(key=lambda ev: (ev.timestamp_utc is None, ev.timestamp_utc))
     except ArtifactError as e:
         # ArtifactNotFoundError (missing) i CorruptedDatabaseError niosą już czytelny komunikat
         _err(f"[!] {e}")
@@ -217,17 +284,24 @@ def main(argv: list[str] | None = None) -> int:
     # 5 Generate reports
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    if args.report in ("html", "both"):
+    if args.report in ("html", "both", "all"):
         html_path = args.output_dir / "report.html"
         render_report(events, anomalies, html_path, case_id=args.case_id)
         _log(f"[+] HTML report:   {html_path}")
 
-    if args.report in ("csv", "both"):
+    if args.report in ("csv", "both", "all"):
         timeline_csv, anomalies_csv = export_to_csv(
             events, anomalies, args.output_dir,
         )
         _log(f"[+] CSV timeline:  {timeline_csv}")
         _log(f"[+] CSV anomalies: {anomalies_csv}")
+
+    if args.report in ("json", "all"):
+        json_path = export_to_json(
+            events, anomalies, args.output_dir / "report.json",
+            case_id=args.case_id,
+        )
+        _log(f"[+] JSON report:   {json_path}")
 
     _log("")
     _log("[*] Done.")

@@ -1,0 +1,22 @@
+{
+  "extensions": {
+    "settings": {
+      "cjpalhdlnbpafiamejdnhcphjbkeiagm": {
+        "state": 1,
+        "install_time": "13417948800000000",
+        "manifest": {
+          "name": "uBlock Origin",
+          "version": "1.55.0"
+        }
+      },
+      "nkbihfbeogaeaoehlefnkodbefgpgknn": {
+        "state": 1,
+        "install_time": "13417954800000000",
+        "manifest": {
+          "name": "MetaMask",
+          "version": "11.9.1"
+        }
+      }
+    }
+  }
+}

@@ -3,17 +3,23 @@ Generate anonymized sample browser artifacts for Browser-Autopsy demos.
 
 Scenario: INC-2026-03-14 — suspicious insider activity.
 An employee starts the day normally, then begins researching offensive tools,
-visits suspicious domains, and downloads malicious-looking files.
+visits suspicious domains, downloads malicious-looking files — and at the end
+of the day deletes the most incriminating history entry (recoverable from the
+frozen WAL with --wal-recover).
 
 Run from repo root:
     python samples/generate.py
 
 Outputs:
-    samples/chrome/History
-    samples/firefox/places.sqlite
+    samples/chrome/History (+History-wal), Cookies, Bookmarks, Web Data,
+                   Preferences
+    samples/firefox/places.sqlite, cookies.sqlite, formhistory.sqlite,
+                    extensions.json
 """
 import json
+import shutil
 import sqlite3
+import tempfile
 from pathlib import Path
 
 # Timestamp helpers
@@ -282,12 +288,280 @@ def build_firefox(db_path: Path) -> None:
     print(f"[+] Firefox -> {db_path}")
 
 
+# Chrome — v2 artifacts (cookies, bookmarks, autofill, extensions)
+CHROME_COOKIES = [
+    {"host": ".google.com", "name": "SID", "created": _t(8, 5),
+     "expires": _t(8, 5) + 63_072_000, "secure": 1, "httponly": 1},
+    {"host": ".github.com", "name": "user_session", "created": _t(8, 30),
+     "expires": _t(8, 30) + 1_209_600, "secure": 1, "httponly": 1},
+    {"host": ".pastebin.com", "name": "__cf_bm", "created": _t(9, 45),
+     "expires": 0, "secure": 1, "httponly": 1},
+    {"host": ".onet.pl", "name": "onet_ubi", "created": _t(13, 0),
+     "expires": _t(13, 0) + 31_536_000, "secure": 0, "httponly": 0},
+]
+
+CHROME_BOOKMARKS = [
+    {"folder": "Bookmarks bar", "name": "GitHub", "url": "https://github.com/",
+     "added": _t(8, 30)},
+    {"folder": "Bookmarks bar", "name": "Python Docs",
+     "url": "https://docs.python.org/3/", "added": _t(8, 12)},
+    {"folder": "Research", "name": "Pastebin loader",
+     "url": "https://pastebin.com/xK7mN2pQ", "added": _t(9, 46)},
+]
+
+CHROME_AUTOFILL = [
+    {"name": "email", "value": "j.kowalski@firma.pl", "count": 12,
+     "created": _t(8, 5), "last_used": _t(14, 0)},
+    {"name": "search", "value": "mimikatz tutorial", "count": 2,
+     "created": _t(10, 30), "last_used": _t(11, 5)},
+    {"name": "username", "value": "jkowalski", "count": 8,
+     "created": _t(8, 30), "last_used": _t(13, 20)},
+]
+
+CHROME_EXTENSIONS = {
+    "cjpalhdlnbpafiamejdnhcphjbkeiagm": {
+        "state": 1, "install_time": str(_chrome_ts(_t(8, 0))),
+        "manifest": {"name": "uBlock Origin", "version": "1.55.0"},
+    },
+    "nkbihfbeogaeaoehlefnkodbefgpgknn": {
+        "state": 1, "install_time": str(_chrome_ts(_t(9, 40))),
+        "manifest": {"name": "MetaMask", "version": "11.9.1"},
+    },
+}
+
+
+def _augment_chrome(db_path: Path, profile: Path) -> None:
+    """Add cookies / bookmarks / autofill / extensions next to History."""
+    # Cookies (Network/Cookies — nowsza lokalizacja)
+    cookies_path = profile / "Network" / "Cookies"
+    cookies_path.parent.mkdir(parents=True, exist_ok=True)
+    if cookies_path.exists():
+        cookies_path.unlink()
+    conn = sqlite3.connect(cookies_path)
+    conn.executescript("""
+        CREATE TABLE cookies (
+            creation_utc    INTEGER NOT NULL,
+            host_key        TEXT NOT NULL,
+            name            TEXT NOT NULL,
+            path            TEXT NOT NULL DEFAULT '/',
+            expires_utc     INTEGER NOT NULL DEFAULT 0,
+            is_secure       INTEGER NOT NULL DEFAULT 0,
+            is_httponly     INTEGER NOT NULL DEFAULT 0,
+            last_access_utc INTEGER NOT NULL DEFAULT 0
+        );
+    """)
+    for c in CHROME_COOKIES:
+        conn.execute(
+            "INSERT INTO cookies (creation_utc, host_key, name, expires_utc,"
+            " is_secure, is_httponly, last_access_utc) VALUES (?,?,?,?,?,?,?)",
+            (_chrome_ts(c["created"]), c["host"], c["name"],
+             _chrome_ts(c["expires"]) if c["expires"] else 0,
+             c["secure"], c["httponly"], _chrome_ts(c["created"])),
+        )
+    conn.commit()
+    conn.close()
+
+    # Bookmarks (JSON) — grupujemy po folderach
+    folders: dict[str, list] = {}
+    for b in CHROME_BOOKMARKS:
+        folders.setdefault(b["folder"], []).append({
+            "type": "url", "name": b["name"], "url": b["url"],
+            "date_added": str(_chrome_ts(b["added"])),
+        })
+    bar_children = folders.get("Bookmarks bar", []) + [
+        {"type": "folder", "name": name, "children": children}
+        for name, children in folders.items() if name != "Bookmarks bar"
+    ]
+    (profile / "Bookmarks").write_text(json.dumps({
+        "roots": {
+            "bookmark_bar": {"type": "folder", "name": "Bookmarks bar",
+                             "children": bar_children},
+            "other": {"type": "folder", "name": "Other bookmarks", "children": []},
+        },
+        "version": 1,
+    }, indent=2), encoding="utf-8")
+
+    # Web Data (autofill) — date_* w SEKUNDACH
+    webdata_path = profile / "Web Data"
+    if webdata_path.exists():
+        webdata_path.unlink()
+    conn = sqlite3.connect(webdata_path)
+    conn.executescript("""
+        CREATE TABLE autofill (
+            name TEXT NOT NULL, value TEXT NOT NULL, count INTEGER DEFAULT 1,
+            date_created INTEGER, date_last_used INTEGER
+        );
+    """)
+    for a in CHROME_AUTOFILL:
+        conn.execute(
+            "INSERT INTO autofill (name, value, count, date_created,"
+            " date_last_used) VALUES (?,?,?,?,?)",
+            (a["name"], a["value"], a["count"], a["created"], a["last_used"]),
+        )
+    conn.commit()
+    conn.close()
+
+    # Preferences (extensions)
+    (profile / "Preferences").write_text(json.dumps({
+        "extensions": {"settings": CHROME_EXTENSIONS},
+    }, indent=2), encoding="utf-8")
+
+
+def _add_chrome_wal_deletion(db_path: Path) -> None:
+    """Freeze a History + History-wal pair where the mimikatz search visit is
+    deleted only in the WAL — recoverable with --wal-recover."""
+    conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute(
+        "DELETE FROM visits WHERE url IN "
+        "(SELECT id FROM urls WHERE url LIKE '%mimikatz%')"
+    )
+    conn.execute("DELETE FROM urls WHERE url LIKE '%mimikatz%'")
+    conn.commit()
+    # kopiujemy main+wal PRZED close() (close scala WAL)
+    shutil.copy2(db_path, db_path.parent / (db_path.name + ".main"))
+    shutil.copy2(Path(str(db_path) + "-wal"),
+                 db_path.parent / (db_path.name + "-wal.frozen"))
+    conn.close()
+    # przywracamy zamrożony split jako finalne artefakty
+    shutil.move(str(db_path.parent / (db_path.name + ".main")), str(db_path))
+    shutil.move(str(db_path.parent / (db_path.name + "-wal.frozen")),
+                str(Path(str(db_path) + "-wal")))
+
+
+# Firefox — v2 artifacts (cookies, form history, extensions)
+FIREFOX_COOKIES = [
+    {"host": ".mozilla.org", "name": "sessionid", "created": _t(8, 20),
+     "expiry": _t(8, 20) + 31_536_000, "secure": 1, "httponly": 1},
+    {"host": ".duckduckgo.com", "name": "5", "created": _t(11, 10),
+     "expiry": 0, "secure": 1, "httponly": 0},
+    {"host": ".transfer.sh", "name": "session", "created": _t(12, 30),
+     "expiry": _t(12, 30) + 86_400, "secure": 1, "httponly": 1},
+]
+
+FIREFOX_FORMHISTORY = [
+    {"field": "searchbar-history", "value": "mimikatz download github",
+     "count": 1, "first": _t(11, 10), "last": _t(11, 10)},
+    {"field": "email", "value": "j.kowalski@firma.pl", "count": 5,
+     "first": _t(8, 20), "last": _t(14, 30)},
+]
+
+FIREFOX_EXTENSIONS = [
+    {"id": "uBlock0@raymondhill.net", "type": "extension", "version": "1.55.0",
+     "active": True, "installDate": _t(8, 15) * 1000,
+     "defaultLocale": {"name": "uBlock Origin"}},
+    {"id": "{446900e4-71c2-419f-a6a7-df9c091e268b}", "type": "extension",
+     "version": "3.5.0", "active": True, "installDate": _t(9, 0) * 1000,
+     "defaultLocale": {"name": "Bitwarden"}},
+    {"id": "default-theme@mozilla.org", "type": "theme", "active": True,
+     "installDate": _t(8, 0) * 1000, "defaultLocale": {"name": "System theme"}},
+]
+
+
+def _augment_firefox(profile: Path) -> None:
+    """Add cookies / formhistory / extensions next to places.sqlite; also
+    write a few bookmarks into places.sqlite (moz_bookmarks)."""
+    # cookies.sqlite — creationTime/lastAccessed µs, expiry sekundy
+    cookies_path = profile / "cookies.sqlite"
+    if cookies_path.exists():
+        cookies_path.unlink()
+    conn = sqlite3.connect(cookies_path)
+    conn.executescript("""
+        CREATE TABLE moz_cookies (
+            id INTEGER PRIMARY KEY, host TEXT, name TEXT, path TEXT DEFAULT '/',
+            expiry INTEGER, lastAccessed INTEGER, creationTime INTEGER,
+            isSecure INTEGER, isHttpOnly INTEGER
+        );
+    """)
+    for c in FIREFOX_COOKIES:
+        conn.execute(
+            "INSERT INTO moz_cookies (host, name, expiry, lastAccessed,"
+            " creationTime, isSecure, isHttpOnly) VALUES (?,?,?,?,?,?,?)",
+            (c["host"], c["name"], c["expiry"], _firefox_ts(c["created"]),
+             _firefox_ts(c["created"]), c["secure"], c["httponly"]),
+        )
+    conn.commit()
+    conn.close()
+
+    # formhistory.sqlite
+    form_path = profile / "formhistory.sqlite"
+    if form_path.exists():
+        form_path.unlink()
+    conn = sqlite3.connect(form_path)
+    conn.executescript("""
+        CREATE TABLE moz_formhistory (
+            id INTEGER PRIMARY KEY, fieldname TEXT NOT NULL, value TEXT NOT NULL,
+            timesUsed INTEGER, firstUsed INTEGER, lastUsed INTEGER
+        );
+    """)
+    for f in FIREFOX_FORMHISTORY:
+        conn.execute(
+            "INSERT INTO moz_formhistory (fieldname, value, timesUsed,"
+            " firstUsed, lastUsed) VALUES (?,?,?,?,?)",
+            (f["field"], f["value"], f["count"],
+             _firefox_ts(f["first"]), _firefox_ts(f["last"])),
+        )
+    conn.commit()
+    conn.close()
+
+    # extensions.json — installDate w MILISEKUNDACH
+    (profile / "extensions.json").write_text(json.dumps({
+        "schemaVersion": 36, "addons": FIREFOX_EXTENSIONS,
+    }, indent=2), encoding="utf-8")
+
+
+def _add_firefox_bookmarks(db_path: Path) -> None:
+    """Add moz_bookmarks rows to an existing places.sqlite."""
+    conn = sqlite3.connect(db_path)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS moz_bookmarks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, type INTEGER NOT NULL,
+            fk INTEGER, parent INTEGER, title TEXT, dateAdded INTEGER
+        );
+    """)
+    conn.execute("INSERT INTO moz_bookmarks (type, parent, title, dateAdded)"
+                 " VALUES (2, 0, 'Toolbar', 0)")
+    toolbar_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    bookmarks = [
+        ("https://stackoverflow.com/questions/tagged/python",
+         "Python — Stack Overflow", _t(8, 45)),
+        ("https://github.com/gentilkiwi/mimikatz",
+         "gentilkiwi/mimikatz", _t(11, 40)),
+    ]
+    for url, title, added in bookmarks:
+        conn.execute("INSERT INTO moz_places (url, title, visit_count)"
+                     " VALUES (?,?,0)", (url, title))
+        place_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        conn.execute(
+            "INSERT INTO moz_bookmarks (type, fk, parent, title, dateAdded)"
+            " VALUES (1, ?, ?, ?, ?)",
+            (place_id, toolbar_id, title, _firefox_ts(added)),
+        )
+    conn.commit()
+    conn.close()
+
+
 # Main
 if __name__ == "__main__":
     root = Path(__file__).resolve().parent
-    build_chrome(root / "chrome" / "History")
-    build_firefox(root / "firefox" / "places.sqlite")
+
+    chrome_history = root / "chrome" / "History"
+    build_chrome(chrome_history)
+    _augment_chrome(chrome_history, root / "chrome")
+    _add_chrome_wal_deletion(chrome_history)
+    print(f"[+] Chrome  v2 artifacts (cookies, bookmarks, autofill, "
+          f"extensions, WAL) -> {root / 'chrome'}")
+
+    firefox_places = root / "firefox" / "places.sqlite"
+    build_firefox(firefox_places)
+    _add_firefox_bookmarks(firefox_places)
+    _augment_firefox(root / "firefox")
+    print(f"[+] Firefox v2 artifacts (cookies, bookmarks, formhistory, "
+          f"extensions) -> {root / 'firefox'}")
+
     print()
     print("Sample artifacts generated. Run the tool with:")
     print()
-    print(f"  python main.py --chrome-profile {root / 'chrome'} --firefox-profile {root / 'firefox'} --case-id INC-2026-03-14 --output-dir output/demo")
+    print(f"  python main.py --chrome-profile {root / 'chrome'} "
+          f"--firefox-profile {root / 'firefox'} --wal-recover "
+          f"--case-id INC-2026-03-14 --report all --output-dir output/demo")

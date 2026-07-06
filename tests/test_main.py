@@ -53,6 +53,7 @@ def stub_pipeline(monkeypatch):
         "filter_by_time": [],
         "render_report": [],
         "export_to_csv": [],
+        "export_to_json": [],
     }
 
     def fake_build_timeline(**kwargs):
@@ -80,10 +81,20 @@ def stub_pipeline(monkeypatch):
         })
         return output_dir / "timeline.csv", output_dir / "anomalies.csv"
 
+    def fake_export_to_json(events, anomalies, output_path, case_id="UNSPECIFIED"):
+        calls["export_to_json"].append({
+            "events": events,
+            "anomalies": anomalies,
+            "output_path": output_path,
+            "case_id": case_id,
+        })
+        return output_path
+
     monkeypatch.setattr(cli_main, "build_timeline", fake_build_timeline)
     monkeypatch.setattr(cli_main, "filter_by_time", fake_filter_by_time)
     monkeypatch.setattr(cli_main, "render_report", fake_render_report)
     monkeypatch.setattr(cli_main, "export_to_csv", fake_export_to_csv)
+    monkeypatch.setattr(cli_main, "export_to_json", fake_export_to_json)
     return calls
 
 
@@ -160,7 +171,7 @@ class TestParseArgs:
         assert args.output_dir == Path("/tmp/out")
 
     def test_report_choices(self):
-        for fmt in ["html", "csv", "both"]:
+        for fmt in ["html", "csv", "json", "both", "all"]:
             args = _parse_args(["--chrome-profile", "/x", "--report", fmt])
             assert args.report == fmt
 
@@ -172,6 +183,10 @@ class TestParseArgs:
     def test_invalid_chrome_browser_exits(self):
         with pytest.raises(SystemExit):
             _parse_args(["--chrome-profile", "/x", "--chrome-browser", "netscape"])
+
+    def test_invalid_firefox_browser_exits(self):
+        with pytest.raises(SystemExit):
+            _parse_args(["--firefox-profile", "/x", "--firefox-browser", "netscape"])
 
     def test_default_output_dir(self):
         args = _parse_args(["--chrome-profile", "/x"])
@@ -231,6 +246,29 @@ class TestMainHappyPath:
         assert len(stub_pipeline["render_report"]) == 0
         assert len(stub_pipeline["export_to_csv"]) == 1
 
+    def test_report_json_only(self, tmp_path, ioc_file, stub_pipeline):
+        main(_base_argv(ioc_file, tmp_path / "out") + ["--report", "json"])
+        assert len(stub_pipeline["render_report"]) == 0
+        assert len(stub_pipeline["export_to_csv"]) == 0
+        assert len(stub_pipeline["export_to_json"]) == 1
+
+    def test_report_both_skips_json(self, tmp_path, ioc_file, stub_pipeline):
+        # 'both' zostaje html+csv dla zgodności wstecznej
+        main(_base_argv(ioc_file, tmp_path / "out") + ["--report", "both"])
+        assert len(stub_pipeline["export_to_json"]) == 0
+
+    def test_report_all_renders_everything(self, tmp_path, ioc_file, stub_pipeline):
+        main(_base_argv(ioc_file, tmp_path / "out") + ["--report", "all"])
+        assert len(stub_pipeline["render_report"]) == 1
+        assert len(stub_pipeline["export_to_csv"]) == 1
+        assert len(stub_pipeline["export_to_json"]) == 1
+
+    def test_json_path_under_output_dir(self, tmp_path, ioc_file, stub_pipeline):
+        out = tmp_path / "out"
+        main(_base_argv(ioc_file, out) + ["--report", "json"])
+        assert stub_pipeline["export_to_json"][0]["output_path"] == \
+            out / "report.json"
+
     def test_case_id_passed_to_html_render(self, tmp_path, ioc_file, stub_pipeline):
         main(_base_argv(ioc_file, tmp_path / "out") + ["--case-id", "INC-2024-117"])
         assert stub_pipeline["render_report"][0]["case_id"] == "INC-2024-117"
@@ -282,6 +320,93 @@ class TestMainHappyPath:
         call = stub_pipeline["build_timeline"][0]
         assert call["chrome_profile"] is None
         assert call["firefox_profile"] == Path("/fake/ff")
+
+    def test_firefox_browser_default_is_firefox(self, tmp_path, ioc_file, stub_pipeline):
+        main(_base_argv(ioc_file, tmp_path / "out"))
+        call = stub_pipeline["build_timeline"][0]
+        assert call["firefox_browser_name"] == "firefox"
+
+    def test_firefox_browser_tor_passed_to_timeline(self, tmp_path, ioc_file, stub_pipeline):
+        main([
+            "--firefox-profile", "/fake/tor",
+            "--firefox-browser", "tor",
+            "--ioc-file", str(ioc_file),
+            "--output-dir", str(tmp_path / "out"),
+        ])
+        call = stub_pipeline["build_timeline"][0]
+        assert call["firefox_browser_name"] == "tor"
+
+
+# main() — --input multi-profile mode
+class TestMainInputDiscovery:
+
+    @staticmethod
+    def _evidence_dir(tmp_path: Path) -> Path:
+        evidence = tmp_path / "evidence"
+        chrome = evidence / "edge_backup"
+        chrome.mkdir(parents=True)
+        (chrome / "History").touch()
+        gecko = evidence / "tor_profile"
+        gecko.mkdir(parents=True)
+        (gecko / "places.sqlite").touch()
+        return evidence
+
+    def test_input_alone_is_sufficient(self, tmp_path, ioc_file, stub_pipeline):
+        evidence = self._evidence_dir(tmp_path)
+        rc = main([
+            "--input", str(evidence),
+            "--ioc-file", str(ioc_file),
+            "--output-dir", str(tmp_path / "out"),
+        ])
+        assert rc == 0
+        assert len(stub_pipeline["build_timeline"]) == 2
+
+    def test_discovered_labels_passed_to_timeline(self, tmp_path, ioc_file,
+                                                  stub_pipeline):
+        evidence = self._evidence_dir(tmp_path)
+        main([
+            "--input", str(evidence),
+            "--ioc-file", str(ioc_file),
+            "--output-dir", str(tmp_path / "out"),
+        ])
+        calls = stub_pipeline["build_timeline"]
+        chromium_call = next(c for c in calls if "chrome_profile" in c)
+        gecko_call = next(c for c in calls if "firefox_profile" in c)
+        assert chromium_call["chrome_browser_name"] == "edge"
+        assert gecko_call["firefox_browser_name"] == "tor"
+
+    def test_input_combined_with_explicit_profile(self, tmp_path, ioc_file,
+                                                  stub_pipeline):
+        evidence = self._evidence_dir(tmp_path)
+        rc = main([
+            "--input", str(evidence),
+            "--chrome-profile", "/fake/chrome",
+            "--ioc-file", str(ioc_file),
+            "--output-dir", str(tmp_path / "out"),
+        ])
+        assert rc == 0
+        # 1 wywołanie za --chrome-profile + 2 za discovery
+        assert len(stub_pipeline["build_timeline"]) == 3
+
+    def test_missing_input_dir_returns_1(self, tmp_path, ioc_file, capsys):
+        rc = main([
+            "--input", str(tmp_path / "nonexistent"),
+            "--ioc-file", str(ioc_file),
+            "--output-dir", str(tmp_path / "out"),
+        ])
+        assert rc == 1
+        assert "not found" in capsys.readouterr().err.lower()
+
+    def test_empty_input_dir_returns_1(self, tmp_path, ioc_file, capsys):
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        rc = main([
+            "--input", str(empty),
+            "--ioc-file", str(ioc_file),
+            "--output-dir", str(tmp_path / "out"),
+        ])
+        assert rc == 1
+        assert "no browser profiles" in capsys.readouterr().err.lower()
 
 
 # main() — error paths

@@ -1,4 +1,6 @@
 import json
+import os
+import platform
 import shutil
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -8,11 +10,148 @@ from extractors.base import (
     firefox_timestamp_to_utc,
     open_db,
     sha256_file,
+    unix_seconds_to_utc,
+    MalformedArtifactError,
     VisitEntry,
     DownloadEntry,
     SearchEntry,
+    CookieEntry,
+    BookmarkEntry,
+    AutofillEntry,
+    ExtensionEntry,
     _extract_query,
 )
+
+# Gecko family — profile path detection
+#
+# Unlike Chromium, Gecko does not keep a fixed "Default" profile directory:
+# profiles live under a per-browser root as randomly named folders
+# ("Profiles/ab12cd34.default-release"). Detection therefore means: find the
+# root, then scan it for directories that actually contain places.sqlite.
+
+GECKO_BROWSERS: tuple[str, ...] = (
+    "firefox", "tor", "librewolf", "waterfox",
+)
+
+
+def _env_dir(var: str, default: Path) -> Path:
+    # Path("") is truthy (== Path(".")), so a plain `or` fallback never fires —
+    # check the env var itself before building a Path from it.
+    value = os.environ.get(var)
+    return Path(value).expanduser() if value else default
+
+
+def _gecko_roots_windows() -> dict[str, list[Path]]:
+    roaming = _env_dir("APPDATA", Path.home() / "AppData" / "Roaming")
+    home = Path.home()
+    return {
+        "firefox":   [roaming / "Mozilla" / "Firefox" / "Profiles"],
+        "librewolf": [roaming / "librewolf" / "Profiles"],
+        "waterfox":  [roaming / "Waterfox" / "Profiles"],
+        # Tor Browser is portable — the installer defaults to the Desktop.
+        "tor": [
+            home / "Desktop" / "Tor Browser" / "Browser" / "TorBrowser"
+                 / "Data" / "Browser",
+            home / "Tor Browser" / "Browser" / "TorBrowser" / "Data" / "Browser",
+        ],
+    }
+
+
+def _gecko_roots_darwin() -> dict[str, list[Path]]:
+    app_support = Path.home() / "Library" / "Application Support"
+    return {
+        "firefox":   [app_support / "Firefox" / "Profiles"],
+        "librewolf": [app_support / "LibreWolf" / "Profiles"],
+        "waterfox":  [app_support / "Waterfox" / "Profiles"],
+        "tor":       [app_support / "TorBrowser-Data" / "Browser"],
+    }
+
+
+def _gecko_roots_linux() -> dict[str, list[Path]]:
+    home = Path.home()
+    return {
+        "firefox":   [home / ".mozilla" / "firefox",
+                      home / "snap" / "firefox" / "common" / ".mozilla" / "firefox"],
+        "librewolf": [home / ".librewolf"],
+        "waterfox":  [home / ".waterfox"],
+        # Extracted tarball and torbrowser-launcher layouts.
+        "tor": [
+            home / "tor-browser" / "Browser" / "TorBrowser" / "Data" / "Browser",
+            home / ".local" / "share" / "torbrowser" / "tbb" / "x86_64"
+                 / "tor-browser" / "Browser" / "TorBrowser" / "Data" / "Browser",
+        ],
+    }
+
+
+_GECKO_PLATFORM_RESOLVERS = {
+    "Windows": _gecko_roots_windows,
+    "Darwin":  _gecko_roots_darwin,
+    "Linux":   _gecko_roots_linux,
+}
+
+
+def get_profile_roots(browser: str, system: str | None = None) -> list[Path]:
+    """Return candidate profile-root directories for a Gecko-family browser.
+
+    A "root" is where profile folders live (e.g. ~/.mozilla/firefox) — NOT the
+    profile itself. Use detect_gecko_profiles() to find actual profiles.
+
+    Args:
+        browser: One of GECKO_BROWSERS (case-insensitive).
+        system: Override platform.system() — useful in tests.
+
+    Returns:
+        List of candidate root Paths ([] if browser or OS is unknown).
+    """
+    resolver = _GECKO_PLATFORM_RESOLVERS.get(system or platform.system())
+    if resolver is None:
+        return []
+    return resolver().get(browser.lower(), [])
+
+
+def _profiles_under(root: Path) -> list[Path]:
+    """Directories in/under `root` that contain places.sqlite.
+
+    Checks the root itself (Tor's profile.default layout) and one level of
+    subdirectories (Profiles/xxxx.default-release layout).
+    """
+    if not root.is_dir():
+        return []
+    found = []
+    if (root / "places.sqlite").exists():
+        found.append(root)
+    for child in root.iterdir():
+        if child.is_dir() and (child / "places.sqlite").exists():
+            found.append(child)
+    return found
+
+
+def detect_gecko_profiles(system: str | None = None) -> dict[str, Path]:
+    """Find Gecko-family browser profiles present on this machine.
+
+    Scans each browser's candidate roots for directories containing
+    places.sqlite. When a browser has several profiles, the one with the most
+    recently modified places.sqlite wins (= the actively used profile).
+
+    Args:
+        system: Override platform.system() — useful in tests.
+
+    Returns:
+        {browser_name: profile_path} for every browser found.
+    """
+    resolver = _GECKO_PLATFORM_RESOLVERS.get(system or platform.system())
+    if resolver is None:
+        return {}
+
+    detected: dict[str, Path] = {}
+    for name, roots in resolver().items():
+        profiles = [p for root in roots for p in _profiles_under(root)]
+        if profiles:
+            detected[name] = max(
+                profiles, key=lambda p: (p / "places.sqlite").stat().st_mtime
+            )
+    return detected
+
 
 # Firefox History
 def extract_history(profile_path: Path) -> list[VisitEntry]:
@@ -267,4 +406,233 @@ def extract_searches(profile_path: Path) -> list[SearchEntry]:
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
     print(f"[*] Znaleziono {len(entries)} wyszukiwań")
+    return entries
+
+
+# Cookies
+def extract_cookies(profile_path: Path) -> list[CookieEntry]:
+    """
+    Parse cookies from the 'cookies.sqlite' database.
+
+    Timestamp units in moz_cookies are mixed (typowe dla Mozilli):
+    creationTime / lastAccessed are µs since Unix epoch, expiry is SECONDS.
+
+    Args:
+        profile_path: Path to Firefox profile directory (contains 'cookies.sqlite').
+
+    Returns:
+        List of CookieEntry, sorted by creation time ascending (None last).
+
+    Raises:
+        FileNotFoundError: If 'cookies.sqlite' does not exist in profile_path.
+    """
+    db_path = profile_path / "cookies.sqlite"
+    checksum = sha256_file(db_path)
+    print(f"[*] Plik: cookies.sqlite\t SHA256: {checksum}")
+
+    conn, tmp_dir = open_db(db_path)
+    entries: list[CookieEntry] = []
+
+    try:
+        cursor = conn.execute(
+            """
+            SELECT
+                creationTime,
+                lastAccessed,
+                expiry,
+                host,
+                name,
+                path,
+                isSecure,
+                isHttpOnly
+            FROM moz_cookies
+            """
+        )
+        for row in cursor:
+            entries.append(
+                CookieEntry(
+                    timestamp=firefox_timestamp_to_utc(row["creationTime"] or 0),
+                    last_access=firefox_timestamp_to_utc(row["lastAccessed"] or 0),
+                    expires=unix_seconds_to_utc(row["expiry"] or 0),
+                    host=row["host"],
+                    name=row["name"],
+                    path=row["path"],
+                    is_secure=bool(row["isSecure"]),
+                    is_httponly=bool(row["isHttpOnly"]),
+                    source_file=str(db_path),
+                    sha256=checksum,
+                )
+            )
+    finally:
+        conn.close()
+        shutil.rmtree(tmp_dir)
+
+    entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
+
+    print(f"[*] Znaleziono {len(entries)} cookies")
+    return entries
+
+
+# Bookmarks
+def extract_bookmarks(profile_path: Path) -> list[BookmarkEntry]:
+    """
+    Parse bookmarks from the 'places.sqlite' database (moz_bookmarks).
+
+    Only real bookmarks (type = 1) pointing at a moz_places URL are returned;
+    folders and separators are skipped. The parent folder title comes from a
+    self-join on moz_bookmarks.
+
+    Args:
+        profile_path: Path to Firefox profile directory (contains 'places.sqlite').
+
+    Returns:
+        List of BookmarkEntry, sorted by date-added ascending (None last).
+
+    Raises:
+        FileNotFoundError: If 'places.sqlite' does not exist in profile_path.
+    """
+    db_path = profile_path / "places.sqlite"
+    checksum = sha256_file(db_path)
+    print(f"[*] Plik: places.sqlite\t SHA256: {checksum}")
+
+    conn, tmp_dir = open_db(db_path)
+    entries: list[BookmarkEntry] = []
+
+    try:
+        cursor = conn.execute(
+            """
+            SELECT
+                b.title       AS title,
+                b.dateAdded   AS date_added,
+                p.url         AS url,
+                parent.title  AS folder
+            FROM moz_bookmarks b
+            JOIN moz_places p ON b.fk = p.id
+            LEFT JOIN moz_bookmarks parent ON b.parent = parent.id
+            WHERE b.type = 1
+            """
+        )
+        for row in cursor:
+            entries.append(
+                BookmarkEntry(
+                    timestamp=firefox_timestamp_to_utc(row["date_added"] or 0),
+                    url=row["url"],
+                    title=row["title"] or "",
+                    folder=row["folder"] or "",
+                    source_file=str(db_path),
+                    sha256=checksum,
+                )
+            )
+    finally:
+        conn.close()
+        shutil.rmtree(tmp_dir)
+
+    entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
+
+    print(f"[*] Znaleziono {len(entries)} zakładek")
+    return entries
+
+
+# Autofill / form history
+def extract_autofill(profile_path: Path) -> list[AutofillEntry]:
+    """
+    Parse saved form-field history from the 'formhistory.sqlite' database.
+
+    Args:
+        profile_path: Path to Firefox profile directory
+            (contains 'formhistory.sqlite').
+
+    Returns:
+        List of AutofillEntry, sorted by first-used ascending (None last).
+
+    Raises:
+        FileNotFoundError: If 'formhistory.sqlite' does not exist in profile_path.
+    """
+    db_path = profile_path / "formhistory.sqlite"
+    checksum = sha256_file(db_path)
+    print(f"[*] Plik: formhistory.sqlite\t SHA256: {checksum}")
+
+    conn, tmp_dir = open_db(db_path)
+    entries: list[AutofillEntry] = []
+
+    try:
+        cursor = conn.execute(
+            """
+            SELECT fieldname, value, timesUsed, firstUsed, lastUsed
+            FROM moz_formhistory
+            """
+        )
+        for row in cursor:
+            entries.append(
+                AutofillEntry(
+                    timestamp=firefox_timestamp_to_utc(row["firstUsed"] or 0),
+                    last_used=firefox_timestamp_to_utc(row["lastUsed"] or 0),
+                    field_name=row["fieldname"],
+                    value=row["value"],
+                    times_used=row["timesUsed"] or 0,
+                    source_file=str(db_path),
+                    sha256=checksum,
+                )
+            )
+    finally:
+        conn.close()
+        shutil.rmtree(tmp_dir)
+
+    entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
+
+    print(f"[*] Znaleziono {len(entries)} wpisów autofill")
+    return entries
+
+
+# Extensions
+def extract_extensions(profile_path: Path) -> list[ExtensionEntry]:
+    """
+    Parse installed-addon metadata from the 'extensions.json' file.
+
+    Only type == "extension" addons are returned (themes, dictionaries and
+    langpacks are skipped). installDate is in MILLISECONDS (JS timestamp).
+
+    Args:
+        profile_path: Path to Firefox profile directory (contains 'extensions.json').
+
+    Returns:
+        List of ExtensionEntry, sorted by install time ascending (None last).
+
+    Raises:
+        FileNotFoundError: If 'extensions.json' does not exist in profile_path.
+        MalformedArtifactError: If the file exists but is not valid JSON.
+    """
+    db_path = profile_path / "extensions.json"
+    checksum = sha256_file(db_path)
+    print(f"[*] Plik: extensions.json\t SHA256: {checksum}")
+
+    try:
+        data = json.loads(db_path.read_text(encoding="utf-8"))
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise MalformedArtifactError(
+            f"Not a valid extensions.json file: {db_path} ({exc})"
+        ) from exc
+
+    entries: list[ExtensionEntry] = []
+    addons = data.get("addons", []) if isinstance(data, dict) else []
+    for addon in addons:
+        if not isinstance(addon, dict) or addon.get("type") != "extension":
+            continue
+        install_ms = addon.get("installDate") or 0
+        locale = addon.get("defaultLocale") or {}
+        entries.append(
+            ExtensionEntry(
+                timestamp=firefox_timestamp_to_utc(int(install_ms) * 1000),
+                ext_id=addon.get("id", ""),
+                name=locale.get("name", "") if isinstance(locale, dict) else "",
+                version=addon.get("version", ""),
+                enabled=bool(addon.get("active", False)),
+                source_file=str(db_path),
+                sha256=checksum,
+            )
+        )
+
+    entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
+
+    print(f"[*] Znaleziono {len(entries)} rozszerzeń")
     return entries

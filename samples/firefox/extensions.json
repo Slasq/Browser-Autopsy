@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 36,
+  "addons": [
+    {
+      "id": "uBlock0@raymondhill.net",
+      "type": "extension",
+      "version": "1.55.0",
+      "active": true,
+      "installDate": 1773476100000,
+      "defaultLocale": {
+        "name": "uBlock Origin"
+      }
+    },
+    {
+      "id": "{446900e4-71c2-419f-a6a7-df9c091e268b}",
+      "type": "extension",
+      "version": "3.5.0",
+      "active": true,
+      "installDate": 1773478800000,
+      "defaultLocale": {
+        "name": "Bitwarden"
+      }
+    },
+    {
+      "id": "default-theme@mozilla.org",
+      "type": "theme",
+      "active": true,
+      "installDate": 1773475200000,
+      "defaultLocale": {
+        "name": "System theme"
+      }
+    }
+  ]
+}

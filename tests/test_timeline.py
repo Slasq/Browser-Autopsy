@@ -207,6 +207,20 @@ class TestBuildTimelineFirefoxOnly:
         assert len(events) == 1
         assert events[0].browser == "firefox"
 
+    def test_firefox_browser_name_labels_events(self, monkeypatch):
+        monkeypatch.setattr(timeline.firefox, "extract_history",
+                            lambda p: [_make_visit(TS_JAN1)])
+        monkeypatch.setattr(timeline.firefox, "extract_downloads",
+                            lambda p: [_make_download(TS_JAN2)])
+        monkeypatch.setattr(timeline.firefox, "extract_searches",
+                            lambda p: [_make_search(TS_JAN3)])
+
+        events = build_timeline(firefox_profile=Path("/fake/tor"),
+                                firefox_browser_name="tor")
+        types = {e.event_type for e in events}
+        assert types == {"tor_visit", "tor_download", "tor_search"}
+        assert all(e.browser == "tor" for e in events)
+
 
 # build_timeline: orchestration semantics
 class TestBuildTimelineCombined:

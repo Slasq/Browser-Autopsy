@@ -23,6 +23,67 @@ _TEMPLATE_NAME: str = "report.html"
 _SEVERITY_RANK: dict[str, int] = {"high": 0, "medium": 1, "low": 2}
 
 
+def _viz_category(event_type: str) -> str:
+    """Bucket an event_type into one of the visual timeline categories."""
+    for cat in ("download", "search", "visit"):
+        if cat in event_type:
+            return cat
+    return "other"
+
+
+def _build_hourly_activity(events: list[TimelineEvent]) -> list[dict[str, Any]]:
+    """24 bins (0-23 UTC) with counts and bar heights in % of the max bin."""
+    hour_counts = Counter(
+        e.timestamp_utc.hour for e in events if e.timestamp_utc is not None
+    )
+    max_count = max(hour_counts.values(), default=0)
+    return [
+        {
+            "hour": h,
+            "count": hour_counts.get(h, 0),
+            "pct": round(hour_counts.get(h, 0) / max_count * 100, 1)
+                   if max_count else 0,
+        }
+        for h in range(24)
+    ]
+
+
+def _build_viz_timeline(
+    events: list[TimelineEvent],
+    by_event_id: dict[int, list[Anomaly]],
+) -> dict[str, Any] | None:
+    """Precompute the visual timeline strip: one row per browser, each event
+    as a dot at its %-position within the case time span.
+
+    Rendered by pure CSS (absolute-positioned dots) — no JS, no SVG scaling
+    issues, print-safe. Returns None when there are no timestamped events.
+    """
+    timed = [e for e in events if e.timestamp_utc is not None]
+    if not timed:
+        return None
+
+    start = min(e.timestamp_utc for e in timed)
+    end = max(e.timestamp_utc for e in timed)
+    span = (end - start).total_seconds()
+
+    rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for e in timed:
+        x = 50.0 if span == 0 else \
+            (e.timestamp_utc - start).total_seconds() / span * 100
+        rows[e.browser].append({
+            "x_pct": round(x, 2),
+            "category": _viz_category(e.event_type),
+            "is_anomaly": bool(by_event_id.get(id(e))),
+            "title": f"{e.timestamp_utc:%Y-%m-%d %H:%M} UTC — {e.summary[:100]}",
+        })
+
+    return {
+        "start_label": start.strftime("%Y-%m-%d %H:%M UTC"),
+        "end_label": end.strftime("%Y-%m-%d %H:%M UTC"),
+        "rows": [{"browser": b, "points": pts} for b, pts in rows.items()],
+    }
+
+
 # Context builder
 def _build_context(
     events: list[TimelineEvent],
@@ -61,6 +122,8 @@ def _build_context(
     return {
         "case_id": case_id,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "activity_by_hour": _build_hourly_activity(events),
+        "viz_timeline": _build_viz_timeline(events, by_event_id),
         "source_files": source_files,
         "events": events,
         "events_with_anomalies": events_with_anomalies,

@@ -245,6 +245,124 @@ code, .mono {
     font-variant-numeric: tabular-nums;
 }
 
+/* Hourly activity chart */
+.hour-chart {
+    display: grid;
+    grid-template-columns: repeat(24, 1fr);
+    gap: 3px;
+    align-items: end;
+    height: 120px;
+    margin-top: 16px;
+    padding: 12px 12px 26px 12px;
+    background: var(--bg-paper);
+    border: 1px solid var(--rule);
+}
+.hour-col {
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+}
+.hour-bar {
+    width: 100%;
+    min-height: 1px;
+    background: var(--stamp);
+}
+.hour-col .hour-label {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--ink-soft);
+}
+
+/* Visual timeline strip */
+.viz-timeline {
+    margin-top: 16px;
+    background: var(--bg-paper);
+    border: 1px solid var(--rule);
+    padding: 16px 20px 10px 20px;
+}
+.viz-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 14px;
+    align-items: center;
+    padding: 6px 0;
+}
+.viz-browser {
+    font-family: var(--font-head);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-soft);
+    text-align: right;
+}
+.viz-strip {
+    position: relative;
+    height: 22px;
+    border-bottom: 1px solid var(--rule);
+}
+.viz-dot {
+    position: absolute;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    margin: -4px 0 0 -4px;
+    border-radius: 50%;
+    opacity: 0.85;
+}
+.viz-dot.cat-visit    { background: var(--stamp); }
+.viz-dot.cat-download { background: var(--sev-med-fg); }
+.viz-dot.cat-search   { background: var(--sev-low-fg); }
+.viz-dot.cat-other    { background: var(--rule); border: 1px solid var(--ink-soft); }
+.viz-dot.viz-anomaly {
+    background: var(--accent);
+    width: 9px;
+    height: 9px;
+    margin: -5px 0 0 -5px;
+    box-shadow: 0 0 0 2px var(--sev-high-bg);
+    z-index: 1;
+}
+.viz-axis {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 14px;
+    margin-top: 6px;
+}
+.viz-axis .labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+}
+.viz-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 12px;
+    font-family: var(--font-head);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+}
+.viz-legend .key {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.viz-legend .swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
 /* Tables */
 table {
     width: 100%;
@@ -407,6 +525,49 @@ tr.has-anomaly td:first-child {
         </div>
         {% endif %}
     </div>
+
+    {% if viz_timeline %}
+    <h3>Visual Timeline</h3>
+    <div class="viz-timeline">
+        {% for row in viz_timeline.rows %}
+        <div class="viz-row">
+            <span class="viz-browser">{{ row.browser }}</span>
+            <div class="viz-strip">
+                {% for p in row.points %}
+                <span class="viz-dot cat-{{ p.category }}{% if p.is_anomaly %} viz-anomaly{% endif %}"
+                      style="left: {{ p.x_pct }}%" title="{{ p.title }}"></span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        <div class="viz-axis">
+            <span></span>
+            <div class="labels">
+                <span>{{ viz_timeline.start_label }}</span>
+                <span>{{ viz_timeline.end_label }}</span>
+            </div>
+        </div>
+        <div class="viz-legend">
+            <span class="key"><span class="swatch" style="background: var(--stamp);"></span> Visit</span>
+            <span class="key"><span class="swatch" style="background: var(--sev-med-fg);"></span> Download</span>
+            <span class="key"><span class="swatch" style="background: var(--sev-low-fg);"></span> Search</span>
+            <span class="key"><span class="swatch" style="background: var(--rule); border: 1px solid var(--ink-soft);"></span> Other</span>
+            <span class="key"><span class="swatch" style="background: var(--accent); box-shadow: 0 0 0 2px var(--sev-high-bg);"></span> Anomaly</span>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if activity_by_hour and stats.total_events %}
+    <h3>Activity by Hour (UTC)</h3>
+    <div class="hour-chart">
+        {% for h in activity_by_hour %}
+        <div class="hour-col" title="{{ '%02d' % h.hour }}:00 — {{ h.count }} events">
+            <div class="hour-bar" style="height: {{ h.pct }}%"></div>
+            <span class="hour-label">{{ h.hour }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     {% if stats.events_by_type %}
     <h3>Events by Type</h3>

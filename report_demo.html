@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Browser-Autopsy Report — Case INCIDENT-2026-117</title>
+<title>Browser-Autopsy Report — Case INC-2026-03-14</title>
 <style>
-/* ============================================================
+/* 
    Browser-Autopsy Report — "Forensic Dossier" theme
    Self-contained: no external fonts, no CDN, no JS dependencies.
    Print-friendly: @media print rules for clean A4 PDF export.
-   ============================================================ */
+ */
 
 :root {
     --bg:           #faf8f4;          /* warm cream paper */
@@ -50,8 +50,7 @@ html, body {
     padding: 0 32px 64px 32px;
 }
 
-/* ---------- Typography ---------- */
-
+/* Typography */
 h1, h2, h3 {
     font-family: var(--font-head);
     font-weight: 700;
@@ -85,8 +84,7 @@ code, .mono {
     font-size: 0.88em;
 }
 
-/* ---------- Header / stamp ---------- */
-
+/* Header / stamp */
 .report-header {
     background: var(--stamp);
     color: var(--stamp-ink);
@@ -157,7 +155,7 @@ code, .mono {
     letter-spacing: 0.04em;
 }
 
-/* ---------- Source files ---------- */
+/* Source files */
 
 .source-files {
     margin-top: 16px;
@@ -178,7 +176,7 @@ code, .mono {
 .source-files .path { color: var(--ink); word-break: break-all; }
 .source-files .hash { color: var(--ink-soft); }
 
-/* ---------- Stats ---------- */
+/* Stats */
 
 .stats-grid {
     display: grid;
@@ -212,8 +210,7 @@ code, .mono {
 .stat-card.sev-med  .value { color: var(--sev-med-fg); }
 .stat-card.sev-low  .value { color: var(--sev-low-fg); }
 
-/* ---------- Bar chart ---------- */
-
+/* Bar chart */
 .bar-chart {
     list-style: none;
     padding: 0;
@@ -248,8 +245,125 @@ code, .mono {
     font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Tables ---------- */
+/* Hourly activity chart */
+.hour-chart {
+    display: grid;
+    grid-template-columns: repeat(24, 1fr);
+    gap: 3px;
+    align-items: end;
+    height: 120px;
+    margin-top: 16px;
+    padding: 12px 12px 26px 12px;
+    background: var(--bg-paper);
+    border: 1px solid var(--rule);
+}
+.hour-col {
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+}
+.hour-bar {
+    width: 100%;
+    min-height: 1px;
+    background: var(--stamp);
+}
+.hour-col .hour-label {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--ink-soft);
+}
 
+/* Visual timeline strip */
+.viz-timeline {
+    margin-top: 16px;
+    background: var(--bg-paper);
+    border: 1px solid var(--rule);
+    padding: 16px 20px 10px 20px;
+}
+.viz-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 14px;
+    align-items: center;
+    padding: 6px 0;
+}
+.viz-browser {
+    font-family: var(--font-head);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-soft);
+    text-align: right;
+}
+.viz-strip {
+    position: relative;
+    height: 22px;
+    border-bottom: 1px solid var(--rule);
+}
+.viz-dot {
+    position: absolute;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    margin: -4px 0 0 -4px;
+    border-radius: 50%;
+    opacity: 0.85;
+}
+.viz-dot.cat-visit    { background: var(--stamp); }
+.viz-dot.cat-download { background: var(--sev-med-fg); }
+.viz-dot.cat-search   { background: var(--sev-low-fg); }
+.viz-dot.cat-other    { background: var(--rule); border: 1px solid var(--ink-soft); }
+.viz-dot.viz-anomaly {
+    background: var(--accent);
+    width: 9px;
+    height: 9px;
+    margin: -5px 0 0 -5px;
+    box-shadow: 0 0 0 2px var(--sev-high-bg);
+    z-index: 1;
+}
+.viz-axis {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 14px;
+    margin-top: 6px;
+}
+.viz-axis .labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+}
+.viz-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 12px;
+    font-family: var(--font-head);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+}
+.viz-legend .key {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.viz-legend .swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* Tables */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -287,8 +401,7 @@ tr.has-anomaly td:first-child {
     box-shadow: inset 3px 0 0 var(--accent);
 }
 
-/* ---------- Severity badges ---------- */
-
+/* Severity badges */
 .badge {
     display: inline-block;
     padding: 2px 8px;
@@ -315,8 +428,7 @@ tr.has-anomaly td:first-child {
     color: var(--ink-soft);
 }
 
-/* ---------- Footer ---------- */
-
+/* Footer */
 .report-footer {
     margin-top: 64px;
     padding-top: 16px;
@@ -329,9 +441,7 @@ tr.has-anomaly td:first-child {
     color: var(--ink-soft);
 }
 
-/* ============================================================
-   Print
-   ============================================================ */
+/*  Print */
 @media print {
     html, body { background: white; }
     .container { padding: 0; max-width: none; }
@@ -363,46 +473,308 @@ tr.has-anomaly td:first-child {
         <div class="subtitle">Analysis of Chrome &amp; Firefox browser artifacts</div>
         <div class="evidence-tag">
             <span class="label">Case</span>
-            <span class="value">INCIDENT-2026-117</span>
+            <span class="value">INC-2026-03-14</span>
         </div>
-        <div class="report-meta">Generated 2026-05-17T18:15:48+00:00 UTC</div>
+        <div class="report-meta">Generated 2026-07-06T19:18:45+00:00 UTC</div>
     </div>
 </header>
 
 <div class="container">
 
-    <!-- ============ Source files (chain of custody) ============ -->
+    <!-- Source files (chain of custody) -->
     <h2>I. Source Files</h2>
     <div class="source-files">
         <div class="file-row">
-            <span class="path">/cases/2026-117/chrome/History</span>
-            <span class="hash">SHA-256: d4f3a8c91e2b7c5a8d6f4b3e9c1a8f7e6d5c4b3a2918e7f6d5c4b3a29180e7f6</span>
+            <span class="path">samples\chrome\Preferences</span>
+            <span class="hash">SHA-256: 4a7dac25253d3f64cd4cf8bb0a6c3424a1a2b1776895c0a148ff5243aed209c3</span>
         </div>
         <div class="file-row">
-            <span class="path">/cases/2026-117/firefox/places.sqlite</span>
-            <span class="hash">SHA-256: aa11bb22cc33dd44ee55ff667788990011223344556677889900aabbccddeeff</span>
+            <span class="path">samples\chrome\History</span>
+            <span class="hash">SHA-256: 0f36af7b8419ecabf0c6c7cd692817ddaf148ec658c9c1c87cd48db9848edb5a</span>
+        </div>
+        <div class="file-row">
+            <span class="path">samples\chrome\Network\Cookies</span>
+            <span class="hash">SHA-256: 294f1616898565d370fcc87dec562b5bcf132f81fa4c698afd4337bdbb31849b</span>
+        </div>
+        <div class="file-row">
+            <span class="path">samples\chrome\Web Data</span>
+            <span class="hash">SHA-256: 99d36fdb0a14bffe98e89603cc241022e4973e7c940b99a886ed74b7f667008c</span>
+        </div>
+        <div class="file-row">
+            <span class="path">samples\chrome\Bookmarks</span>
+            <span class="hash">SHA-256: 97865318a2566be4cf85d8cc6addbf282ad3a4d450fbdbd2b37014bf2a9eecbb</span>
+        </div>
+        <div class="file-row">
+            <span class="path">samples\firefox\extensions.json</span>
+            <span class="hash">SHA-256: a0e7a6548b189a74bcb39cf98a056929c99089066a14444cadcef1660e22e650</span>
+        </div>
+        <div class="file-row">
+            <span class="path">samples\firefox\places.sqlite</span>
+            <span class="hash">SHA-256: e55b40794a682fc8d742543a0c4939ec03886a3520f23f2ac3f9ea38a5d2bf95</span>
+        </div>
+        <div class="file-row">
+            <span class="path">samples\firefox\cookies.sqlite</span>
+            <span class="hash">SHA-256: f3c98b56edda4a1581bcc81947300a920169c50a1ba256a6cfced33080c57cc7</span>
+        </div>
+        <div class="file-row">
+            <span class="path">samples\firefox\formhistory.sqlite</span>
+            <span class="hash">SHA-256: d40994252bc059d4e044c8953c8176ea91a1866e576e193934b022adfd3b0ebb</span>
         </div>
     </div>
 
-    <!-- ============ Summary ============ -->
+    <!-- Summary -->
     <h2>II. Summary</h2>
 
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="value">4</div>
+            <div class="value">53</div>
             <div class="label">Total Events</div>
         </div>
         <div class="stat-card">
-            <div class="value">4</div>
+            <div class="value">10</div>
             <div class="label">Anomalies</div>
         </div>
         <div class="stat-card sev-high">
-            <div class="value">3</div>
+            <div class="value">8</div>
             <div class="label">High Severity</div>
         </div>
         <div class="stat-card sev-med">
-            <div class="value">1</div>
+            <div class="value">2</div>
             <div class="label">Medium Severity</div>
+        </div>
+    </div>
+
+    <h3>Visual Timeline</h3>
+    <div class="viz-timeline">
+        <div class="viz-row">
+            <span class="viz-browser">chrome</span>
+            <div class="viz-strip">
+                <span class="viz-dot cat-other"
+                      style="left: 0.0%" title="2026-03-14 08:00 UTC — Extension: uBlock Origin v1.55.0"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 1.19%" title="2026-03-14 08:05 UTC — Visit: https://www.google.com/search?q=python+tutorial — python tutorial - Google Search"></span>
+                <span class="viz-dot cat-search"
+                      style="left: 1.19%" title="2026-03-14 08:05 UTC — Search: &#34;python tutorial&#34; [google]"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 1.19%" title="2026-03-14 08:05 UTC — Cookie: .google.com [SID]"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 1.19%" title="2026-03-14 08:05 UTC — Form entry: email = &#34;j.kowalski@firma.pl&#34;"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 2.86%" title="2026-03-14 08:12 UTC — Visit: https://docs.python.org/3/ — Python 3 Documentation"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 2.86%" title="2026-03-14 08:12 UTC — Bookmark: https://docs.python.org/3/ — Python Docs (Bookmarks bar)"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 7.14%" title="2026-03-14 08:30 UTC — Visit: https://github.com/ — GitHub"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 7.14%" title="2026-03-14 08:30 UTC — Cookie: .github.com [user_session]"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 7.14%" title="2026-03-14 08:30 UTC — Bookmark: https://github.com/ — GitHub (Bookmarks bar)"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 7.14%" title="2026-03-14 08:30 UTC — Form entry: username = &#34;jkowalski&#34;"></span>
+                <span class="viz-dot cat-download"
+                      style="left: 8.33%" title="2026-03-14 08:35 UTC — Download: https://github.com/octocat/notes/releases/download/v1/notes.pdf -&gt; C:\Users\jkowalski\Down"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 15.0%" title="2026-03-14 09:03 UTC — Visit: https://www.google.com/search?q=how+to+bypass+windows+defender — how to bypass windows defend"></span>
+                <span class="viz-dot cat-search"
+                      style="left: 15.0%" title="2026-03-14 09:03 UTC — Search: &#34;how to bypass windows defender&#34; [google]"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 18.57%" title="2026-03-14 09:18 UTC — Visit: https://www.google.com/search?q=disable+uac+windows+10+registry — disable uac windows 10 regi"></span>
+                <span class="viz-dot cat-search"
+                      style="left: 18.57%" title="2026-03-14 09:18 UTC — Search: &#34;disable uac windows 10 registry&#34; [google]"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 23.81%" title="2026-03-14 09:40 UTC — Extension: MetaMask v11.9.1"></span>
+                <span class="viz-dot cat-visit viz-anomaly"
+                      style="left: 25.0%" title="2026-03-14 09:45 UTC — Visit: https://pastebin.com/xK7mN2pQ — Pastebin - PowerShell loader"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 25.0%" title="2026-03-14 09:45 UTC — Cookie: .pastebin.com [__cf_bm]"></span>
+                <span class="viz-dot cat-other viz-anomaly"
+                      style="left: 25.24%" title="2026-03-14 09:46 UTC — Bookmark: https://pastebin.com/xK7mN2pQ — Pastebin loader (Research)"></span>
+                <span class="viz-dot cat-visit viz-anomaly"
+                      style="left: 29.05%" title="2026-03-14 10:02 UTC — Visit: https://cdn.discordapp.com/attachments/fake/tool.zip"></span>
+                <span class="viz-dot cat-download viz-anomaly"
+                      style="left: 29.76%" title="2026-03-14 10:05 UTC — Download: https://cdn.discordapp.com/attachments/fake/update.exe -&gt; C:\Users\jkowalski\Downloads\upd"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 35.71%" title="2026-03-14 10:30 UTC — Form entry: search = &#34;mimikatz tutorial&#34;"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 35.71%" title="2026-03-14 10:30 UTC — [DELETED_PENDING] Visit: https://www.google.com/search?q=mimikatz+tutorial+windows — mimikatz tutori"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 44.05%" title="2026-03-14 11:05 UTC — Visit: https://www.bing.com/search?q=credential+dumping+lsass — credential dumping lsass - Bing"></span>
+                <span class="viz-dot cat-search"
+                      style="left: 44.05%" title="2026-03-14 11:05 UTC — Search: &#34;credential dumping lsass&#34; [bing.com]"></span>
+                <span class="viz-dot cat-download viz-anomaly"
+                      style="left: 46.43%" title="2026-03-14 11:15 UTC — Download: https://pastebin.com/raw/fake_loader -&gt; C:\Users\jkowalski\Downloads\invoice.pdf.exe"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 71.43%" title="2026-03-14 13:00 UTC — Visit: https://www.onet.pl/ — Onet – portal"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 71.43%" title="2026-03-14 13:00 UTC — Cookie: .onet.pl [onet_ubi]"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 76.19%" title="2026-03-14 13:20 UTC — Visit: https://www.youtube.com/watch?v=dQw4w9WgXcQ — YouTube"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 85.71%" title="2026-03-14 14:00 UTC — Visit: https://www.google.com/search?q=weather+warsaw — weather warsaw - Google Search"></span>
+                <span class="viz-dot cat-search"
+                      style="left: 85.71%" title="2026-03-14 14:00 UTC — Search: &#34;weather warsaw&#34; [google]"></span>
+            </div>
+        </div>
+        <div class="viz-row">
+            <span class="viz-browser">firefox</span>
+            <div class="viz-strip">
+                <span class="viz-dot cat-other"
+                      style="left: 3.57%" title="2026-03-14 08:15 UTC — Extension: uBlock Origin v1.55.0"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 4.76%" title="2026-03-14 08:20 UTC — Visit: https://www.google.com/search?q=linux+commands+cheatsheet — linux commands cheatsheet - Googl"></span>
+                <span class="viz-dot cat-search"
+                      style="left: 4.76%" title="2026-03-14 08:20 UTC — Search: &#34;linux commands cheatsheet&#34; [google]"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 4.76%" title="2026-03-14 08:20 UTC — Cookie: .mozilla.org [sessionid]"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 4.76%" title="2026-03-14 08:20 UTC — Form entry: email = &#34;j.kowalski@firma.pl&#34;"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 10.71%" title="2026-03-14 08:45 UTC — Visit: https://stackoverflow.com/questions/tagged/python — Newest Python Questions - Stack Overflow"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 10.71%" title="2026-03-14 08:45 UTC — Bookmark: https://stackoverflow.com/questions/tagged/python — Python — Stack Overflow (Toolbar)"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 14.29%" title="2026-03-14 09:00 UTC — Extension: Bitwarden v3.5.0"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 45.24%" title="2026-03-14 11:10 UTC — Visit: https://duckduckgo.com/?q=mimikatz+download+github — mimikatz download github at DuckDuckGo"></span>
+                <span class="viz-dot cat-search viz-anomaly"
+                      style="left: 45.24%" title="2026-03-14 11:10 UTC — Search: &#34;mimikatz download github&#34; [duckduckgo.com]"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 45.24%" title="2026-03-14 11:10 UTC — Cookie: .duckduckgo.com [5]"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 45.24%" title="2026-03-14 11:10 UTC — Form entry: searchbar-history = &#34;mimikatz download github&#34;"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 51.19%" title="2026-03-14 11:35 UTC — Visit: https://duckduckgo.com/?q=how+to+dump+ntlm+hashes — how to dump ntlm hashes at DuckDuckGo"></span>
+                <span class="viz-dot cat-search"
+                      style="left: 51.19%" title="2026-03-14 11:35 UTC — Search: &#34;how to dump ntlm hashes&#34; [duckduckgo.com]"></span>
+                <span class="viz-dot cat-download"
+                      style="left: 52.38%" title="2026-03-14 11:40 UTC — Download: https://github.com/gentilkiwi/mimikatz/releases/download/fake/mimikatz.zip -&gt; /home/jkowal"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 52.38%" title="2026-03-14 11:40 UTC — Bookmark: https://github.com/gentilkiwi/mimikatz — gentilkiwi/mimikatz (Toolbar)"></span>
+                <span class="viz-dot cat-visit viz-anomaly"
+                      style="left: 57.14%" title="2026-03-14 12:00 UTC — Visit: http://darkfailenbsdla5mal2mxn2uz66od5vtzd5qozslagrfzachha3f3id.onion/ — Dark.Fail — Onion Mi"></span>
+                <span class="viz-dot cat-download viz-anomaly"
+                      style="left: 64.29%" title="2026-03-14 12:30 UTC — Download: https://transfer.sh/fake/invoice.pdf.exe -&gt; /home/jkowalski/Downloads/invoice.pdf.exe"></span>
+                <span class="viz-dot cat-other"
+                      style="left: 64.29%" title="2026-03-14 12:30 UTC — Cookie: .transfer.sh [session]"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 92.86%" title="2026-03-14 14:30 UTC — Visit: https://www.wp.pl/ — Wirtualna Polska"></span>
+                <span class="viz-dot cat-visit"
+                      style="left: 100.0%" title="2026-03-14 15:00 UTC — Visit: https://www.youtube.com/watch?v=fake — YouTube"></span>
+            </div>
+        </div>
+        <div class="viz-axis">
+            <span></span>
+            <div class="labels">
+                <span>2026-03-14 08:00 UTC</span>
+                <span>2026-03-14 15:00 UTC</span>
+            </div>
+        </div>
+        <div class="viz-legend">
+            <span class="key"><span class="swatch" style="background: var(--stamp);"></span> Visit</span>
+            <span class="key"><span class="swatch" style="background: var(--sev-med-fg);"></span> Download</span>
+            <span class="key"><span class="swatch" style="background: var(--sev-low-fg);"></span> Search</span>
+            <span class="key"><span class="swatch" style="background: var(--rule); border: 1px solid var(--ink-soft);"></span> Other</span>
+            <span class="key"><span class="swatch" style="background: var(--accent); box-shadow: 0 0 0 2px var(--sev-high-bg);"></span> Anomaly</span>
+        </div>
+    </div>
+
+    <h3>Activity by Hour (UTC)</h3>
+    <div class="hour-chart">
+        <div class="hour-col" title="00:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">0</span>
+        </div>
+        <div class="hour-col" title="01:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">1</span>
+        </div>
+        <div class="hour-col" title="02:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">2</span>
+        </div>
+        <div class="hour-col" title="03:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">3</span>
+        </div>
+        <div class="hour-col" title="04:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">4</span>
+        </div>
+        <div class="hour-col" title="05:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">5</span>
+        </div>
+        <div class="hour-col" title="06:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">6</span>
+        </div>
+        <div class="hour-col" title="07:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">7</span>
+        </div>
+        <div class="hour-col" title="08:00 — 19 events">
+            <div class="hour-bar" style="height: 100.0%"></div>
+            <span class="hour-label">8</span>
+        </div>
+        <div class="hour-col" title="09:00 — 9 events">
+            <div class="hour-bar" style="height: 47.4%"></div>
+            <span class="hour-label">9</span>
+        </div>
+        <div class="hour-col" title="10:00 — 4 events">
+            <div class="hour-bar" style="height: 21.1%"></div>
+            <span class="hour-label">10</span>
+        </div>
+        <div class="hour-col" title="11:00 — 11 events">
+            <div class="hour-bar" style="height: 57.9%"></div>
+            <span class="hour-label">11</span>
+        </div>
+        <div class="hour-col" title="12:00 — 3 events">
+            <div class="hour-bar" style="height: 15.8%"></div>
+            <span class="hour-label">12</span>
+        </div>
+        <div class="hour-col" title="13:00 — 3 events">
+            <div class="hour-bar" style="height: 15.8%"></div>
+            <span class="hour-label">13</span>
+        </div>
+        <div class="hour-col" title="14:00 — 3 events">
+            <div class="hour-bar" style="height: 15.8%"></div>
+            <span class="hour-label">14</span>
+        </div>
+        <div class="hour-col" title="15:00 — 1 events">
+            <div class="hour-bar" style="height: 5.3%"></div>
+            <span class="hour-label">15</span>
+        </div>
+        <div class="hour-col" title="16:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">16</span>
+        </div>
+        <div class="hour-col" title="17:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">17</span>
+        </div>
+        <div class="hour-col" title="18:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">18</span>
+        </div>
+        <div class="hour-col" title="19:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">19</span>
+        </div>
+        <div class="hour-col" title="20:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">20</span>
+        </div>
+        <div class="hour-col" title="21:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">21</span>
+        </div>
+        <div class="hour-col" title="22:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">22</span>
+        </div>
+        <div class="hour-col" title="23:00 — 0 events">
+            <div class="hour-bar" style="height: 0.0%"></div>
+            <span class="hour-label">23</span>
         </div>
     </div>
 
@@ -410,17 +782,77 @@ tr.has-anomaly td:first-child {
     <ul class="bar-chart">
         <li>
             <span class="bar-label">chrome_visit</span>
-            <progress class="bar" value="2" max="2"></progress>
-            <span class="bar-count">2</span>
+            <progress class="bar" value="11" max="11"></progress>
+            <span class="bar-count">11</span>
         </li>
         <li>
-            <span class="bar-label">chrome_download</span>
-            <progress class="bar" value="1" max="2"></progress>
-            <span class="bar-count">1</span>
+            <span class="bar-label">firefox_visit</span>
+            <progress class="bar" value="7" max="11"></progress>
+            <span class="bar-count">7</span>
+        </li>
+        <li>
+            <span class="bar-label">chrome_search</span>
+            <progress class="bar" value="5" max="11"></progress>
+            <span class="bar-count">5</span>
+        </li>
+        <li>
+            <span class="bar-label">chrome_cookie</span>
+            <progress class="bar" value="4" max="11"></progress>
+            <span class="bar-count">4</span>
+        </li>
+        <li>
+            <span class="bar-label">chrome_form</span>
+            <progress class="bar" value="3" max="11"></progress>
+            <span class="bar-count">3</span>
+        </li>
+        <li>
+            <span class="bar-label">chrome_bookmark</span>
+            <progress class="bar" value="3" max="11"></progress>
+            <span class="bar-count">3</span>
         </li>
         <li>
             <span class="bar-label">firefox_search</span>
-            <progress class="bar" value="1" max="2"></progress>
+            <progress class="bar" value="3" max="11"></progress>
+            <span class="bar-count">3</span>
+        </li>
+        <li>
+            <span class="bar-label">firefox_cookie</span>
+            <progress class="bar" value="3" max="11"></progress>
+            <span class="bar-count">3</span>
+        </li>
+        <li>
+            <span class="bar-label">chrome_download</span>
+            <progress class="bar" value="3" max="11"></progress>
+            <span class="bar-count">3</span>
+        </li>
+        <li>
+            <span class="bar-label">chrome_extension</span>
+            <progress class="bar" value="2" max="11"></progress>
+            <span class="bar-count">2</span>
+        </li>
+        <li>
+            <span class="bar-label">firefox_extension</span>
+            <progress class="bar" value="2" max="11"></progress>
+            <span class="bar-count">2</span>
+        </li>
+        <li>
+            <span class="bar-label">firefox_form</span>
+            <progress class="bar" value="2" max="11"></progress>
+            <span class="bar-count">2</span>
+        </li>
+        <li>
+            <span class="bar-label">firefox_bookmark</span>
+            <progress class="bar" value="2" max="11"></progress>
+            <span class="bar-count">2</span>
+        </li>
+        <li>
+            <span class="bar-label">firefox_download</span>
+            <progress class="bar" value="2" max="11"></progress>
+            <span class="bar-count">2</span>
+        </li>
+        <li>
+            <span class="bar-label">chrome_visit_recovered</span>
+            <progress class="bar" value="1" max="11"></progress>
             <span class="bar-count">1</span>
         </li>
     </ul>
@@ -429,23 +861,28 @@ tr.has-anomaly td:first-child {
     <ul class="bar-chart">
         <li>
             <span class="bar-label">SUSPICIOUS_DOMAIN</span>
-            <progress class="bar" value="2" max="2"></progress>
-            <span class="bar-count">2</span>
+            <progress class="bar" value="6" max="6"></progress>
+            <span class="bar-count">6</span>
         </li>
         <li>
             <span class="bar-label">DOUBLE_EXTENSION</span>
-            <progress class="bar" value="1" max="2"></progress>
+            <progress class="bar" value="2" max="6"></progress>
+            <span class="bar-count">2</span>
+        </li>
+        <li>
+            <span class="bar-label">SUSPICIOUS_EXTENSION</span>
+            <progress class="bar" value="1" max="6"></progress>
             <span class="bar-count">1</span>
         </li>
         <li>
             <span class="bar-label">SUSPICIOUS_KEYWORD</span>
-            <progress class="bar" value="1" max="2"></progress>
+            <progress class="bar" value="1" max="6"></progress>
             <span class="bar-count">1</span>
         </li>
     </ul>
 
-    <!-- ============ Anomalies ============ -->
-    <h2>III. Detected Anomalies (4)</h2>
+    <!-- Detected Anomalies -->
+    <h2>III. Detected Anomalies (10)</h2>
     <table>
         <thead>
             <tr>
@@ -459,15 +896,47 @@ tr.has-anomaly td:first-child {
         </thead>
         <tbody>
             <tr>
-                <td><span class="mono">2026-03-14T09:22:11+00:00</span></td>
+                <td><span class="mono">2026-03-14T09:45:00+00:00</span></td>
                 <td><span class="badge badge-high">high</span></td>
                 <td><code>SUSPICIOUS_DOMAIN</code></td>
-                <td>Connection to suspicious domain &#39;pastebin.com&#39;</td>
+                <td>Connection to suspicious domain &#39;pastebin.com&#39; (matched IOC: pastebin.com)</td>
                 <td><code>pastebin.com</code></td>
                 <td>chrome</td>
             </tr>
             <tr>
-                <td><span class="mono">2026-03-14T09:24:33+00:00</span></td>
+                <td><span class="mono">2026-03-14T09:46:00+00:00</span></td>
+                <td><span class="badge badge-high">high</span></td>
+                <td><code>SUSPICIOUS_DOMAIN</code></td>
+                <td>Connection to suspicious domain &#39;pastebin.com&#39; (matched IOC: pastebin.com)</td>
+                <td><code>pastebin.com</code></td>
+                <td>chrome</td>
+            </tr>
+            <tr>
+                <td><span class="mono">2026-03-14T10:02:00+00:00</span></td>
+                <td><span class="badge badge-high">high</span></td>
+                <td><code>SUSPICIOUS_DOMAIN</code></td>
+                <td>Connection to suspicious domain &#39;cdn.discordapp.com&#39; (matched IOC: cdn.discordapp.com)</td>
+                <td><code>cdn.discordapp.com</code></td>
+                <td>chrome</td>
+            </tr>
+            <tr>
+                <td><span class="mono">2026-03-14T10:05:00+00:00</span></td>
+                <td><span class="badge badge-high">high</span></td>
+                <td><code>SUSPICIOUS_DOMAIN</code></td>
+                <td>Connection to suspicious domain &#39;cdn.discordapp.com&#39; (matched IOC: cdn.discordapp.com)</td>
+                <td><code>cdn.discordapp.com</code></td>
+                <td>chrome</td>
+            </tr>
+            <tr>
+                <td><span class="mono">2026-03-14T11:15:00+00:00</span></td>
+                <td><span class="badge badge-high">high</span></td>
+                <td><code>SUSPICIOUS_DOMAIN</code></td>
+                <td>Connection to suspicious domain &#39;pastebin.com&#39; (matched IOC: pastebin.com)</td>
+                <td><code>pastebin.com</code></td>
+                <td>chrome</td>
+            </tr>
+            <tr>
+                <td><span class="mono">2026-03-14T11:15:00+00:00</span></td>
                 <td><span class="badge badge-high">high</span></td>
                 <td><code>DOUBLE_EXTENSION</code></td>
                 <td>Double-extension trick: &#39;invoice.pdf.exe&#39; appears as &#39;.pdf&#39; but is actually &#39;.exe&#39;</td>
@@ -475,15 +944,31 @@ tr.has-anomaly td:first-child {
                 <td>chrome</td>
             </tr>
             <tr>
-                <td><span class="mono">2026-03-14T09:24:33+00:00</span></td>
+                <td><span class="mono">2026-03-14T12:00:00+00:00</span></td>
                 <td><span class="badge badge-high">high</span></td>
                 <td><code>SUSPICIOUS_DOMAIN</code></td>
-                <td>Connection to suspicious domain &#39;pastebin.com&#39;</td>
-                <td><code>pastebin.com</code></td>
+                <td>Connection to suspicious domain &#39;darkfailenbsdla5mal2mxn2uz66od5vtzd5qozslagrfzachha3f3id.onion&#39; (matched IOC: *.onion)</td>
+                <td><code>*.onion</code></td>
+                <td>firefox</td>
+            </tr>
+            <tr>
+                <td><span class="mono">2026-03-14T12:30:00+00:00</span></td>
+                <td><span class="badge badge-high">high</span></td>
+                <td><code>DOUBLE_EXTENSION</code></td>
+                <td>Double-extension trick: &#39;invoice.pdf.exe&#39; appears as &#39;.pdf&#39; but is actually &#39;.exe&#39;</td>
+                <td><code>.pdf.exe</code></td>
+                <td>firefox</td>
+            </tr>
+            <tr>
+                <td><span class="mono">2026-03-14T10:05:00+00:00</span></td>
+                <td><span class="badge badge-medium">medium</span></td>
+                <td><code>SUSPICIOUS_EXTENSION</code></td>
+                <td>Downloaded file with risky extension &#39;.exe&#39;</td>
+                <td><code>.exe</code></td>
                 <td>chrome</td>
             </tr>
             <tr>
-                <td><span class="mono">2026-03-14T09:28:00+00:00</span></td>
+                <td><span class="mono">2026-03-14T11:10:00+00:00</span></td>
                 <td><span class="badge badge-medium">medium</span></td>
                 <td><code>SUSPICIOUS_KEYWORD</code></td>
                 <td>Search query contains suspicious keyword &#39;mimikatz&#39;</td>
@@ -493,8 +978,8 @@ tr.has-anomaly td:first-child {
         </tbody>
     </table>
 
-    <!-- ============ Timeline ============ -->
-    <h2>IV. Timeline (4)</h2>
+    <!-- Timeline  -->
+    <h2>IV. Timeline (53)</h2>
     <table>
         <thead>
             <tr>
@@ -506,34 +991,304 @@ tr.has-anomaly td:first-child {
             </tr>
         </thead>
         <tbody>
-            <tr class="has-anomaly">
-                <td><span class="mono">2026-03-14T09:22:11+00:00</span></td>
+            <tr >
+                <td><span class="mono">2026-03-14T08:00:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_extension</code></td>
+                <td>Extension: uBlock Origin v1.55.0</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:05:00+00:00</span></td>
                 <td>chrome</td>
                 <td><code>chrome_visit</code></td>
-                <td>Visited: pastebin.com/abc123</td>
+                <td>Visit: https://www.google.com/search?q=python+tutorial — python tutorial - Google Search</td>
                 <td>
-                    <span class="flag-stack">
-                        <span class="badge badge-high" title="Connection to suspicious domain &#39;pastebin.com&#39;">SUSPICIOUS_DOMAIN</span>
-                    </span>
                 </td>
             </tr>
-            <tr class="has-anomaly">
-                <td><span class="mono">2026-03-14T09:24:33+00:00</span></td>
+            <tr >
+                <td><span class="mono">2026-03-14T08:05:00+00:00</span></td>
                 <td>chrome</td>
-                <td><code>chrome_download</code></td>
-                <td>Downloaded: invoice.pdf.exe</td>
+                <td><code>chrome_search</code></td>
+                <td>Search: &#34;python tutorial&#34; [google]</td>
                 <td>
-                    <span class="flag-stack">
-                        <span class="badge badge-high" title="Double-extension trick: &#39;invoice.pdf.exe&#39; appears as &#39;.pdf&#39; but is actually &#39;.exe&#39;">DOUBLE_EXTENSION</span>
-                        <span class="badge badge-high" title="Connection to suspicious domain &#39;pastebin.com&#39;">SUSPICIOUS_DOMAIN</span>
-                    </span>
                 </td>
             </tr>
-            <tr class="has-anomaly">
-                <td><span class="mono">2026-03-14T09:28:00+00:00</span></td>
+            <tr >
+                <td><span class="mono">2026-03-14T08:05:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_cookie</code></td>
+                <td>Cookie: .google.com [SID]</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:05:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_form</code></td>
+                <td>Form entry: email = &#34;j.kowalski@firma.pl&#34;</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:12:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_visit</code></td>
+                <td>Visit: https://docs.python.org/3/ — Python 3 Documentation</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:12:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_bookmark</code></td>
+                <td>Bookmark: https://docs.python.org/3/ — Python Docs (Bookmarks bar)</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:15:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_extension</code></td>
+                <td>Extension: uBlock Origin v1.55.0</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:20:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_visit</code></td>
+                <td>Visit: https://www.google.com/search?q=linux+commands+cheatsheet — linux commands cheatsheet - Google Search</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:20:00+00:00</span></td>
                 <td>firefox</td>
                 <td><code>firefox_search</code></td>
-                <td>Searched: mimikatz tutorial windows 11</td>
+                <td>Search: &#34;linux commands cheatsheet&#34; [google]</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:20:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_cookie</code></td>
+                <td>Cookie: .mozilla.org [sessionid]</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:20:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_form</code></td>
+                <td>Form entry: email = &#34;j.kowalski@firma.pl&#34;</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:30:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_visit</code></td>
+                <td>Visit: https://github.com/ — GitHub</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:30:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_cookie</code></td>
+                <td>Cookie: .github.com [user_session]</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:30:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_bookmark</code></td>
+                <td>Bookmark: https://github.com/ — GitHub (Bookmarks bar)</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:30:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_form</code></td>
+                <td>Form entry: username = &#34;jkowalski&#34;</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:35:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_download</code></td>
+                <td>Download: https://github.com/octocat/notes/releases/download/v1/notes.pdf -&gt; C:\Users\jkowalski\Downloads\notes.pdf</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:45:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_visit</code></td>
+                <td>Visit: https://stackoverflow.com/questions/tagged/python — Newest Python Questions - Stack Overflow</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T08:45:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_bookmark</code></td>
+                <td>Bookmark: https://stackoverflow.com/questions/tagged/python — Python — Stack Overflow (Toolbar)</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T09:00:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_extension</code></td>
+                <td>Extension: Bitwarden v3.5.0</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T09:03:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_visit</code></td>
+                <td>Visit: https://www.google.com/search?q=how+to+bypass+windows+defender — how to bypass windows defender - Google Search</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T09:03:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_search</code></td>
+                <td>Search: &#34;how to bypass windows defender&#34; [google]</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T09:18:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_visit</code></td>
+                <td>Visit: https://www.google.com/search?q=disable+uac+windows+10+registry — disable uac windows 10 registry - Google Search</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T09:18:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_search</code></td>
+                <td>Search: &#34;disable uac windows 10 registry&#34; [google]</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T09:40:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_extension</code></td>
+                <td>Extension: MetaMask v11.9.1</td>
+                <td>
+                </td>
+            </tr>
+            <tr class="has-anomaly">
+                <td><span class="mono">2026-03-14T09:45:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_visit</code></td>
+                <td>Visit: https://pastebin.com/xK7mN2pQ — Pastebin - PowerShell loader</td>
+                <td>
+                    <span class="flag-stack">
+                        <span class="badge badge-high" title="Connection to suspicious domain &#39;pastebin.com&#39; (matched IOC: pastebin.com)">SUSPICIOUS_DOMAIN</span>
+                    </span>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T09:45:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_cookie</code></td>
+                <td>Cookie: .pastebin.com [__cf_bm]</td>
+                <td>
+                </td>
+            </tr>
+            <tr class="has-anomaly">
+                <td><span class="mono">2026-03-14T09:46:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_bookmark</code></td>
+                <td>Bookmark: https://pastebin.com/xK7mN2pQ — Pastebin loader (Research)</td>
+                <td>
+                    <span class="flag-stack">
+                        <span class="badge badge-high" title="Connection to suspicious domain &#39;pastebin.com&#39; (matched IOC: pastebin.com)">SUSPICIOUS_DOMAIN</span>
+                    </span>
+                </td>
+            </tr>
+            <tr class="has-anomaly">
+                <td><span class="mono">2026-03-14T10:02:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_visit</code></td>
+                <td>Visit: https://cdn.discordapp.com/attachments/fake/tool.zip</td>
+                <td>
+                    <span class="flag-stack">
+                        <span class="badge badge-high" title="Connection to suspicious domain &#39;cdn.discordapp.com&#39; (matched IOC: cdn.discordapp.com)">SUSPICIOUS_DOMAIN</span>
+                    </span>
+                </td>
+            </tr>
+            <tr class="has-anomaly">
+                <td><span class="mono">2026-03-14T10:05:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_download</code></td>
+                <td>Download: https://cdn.discordapp.com/attachments/fake/update.exe -&gt; C:\Users\jkowalski\Downloads\update.exe</td>
+                <td>
+                    <span class="flag-stack">
+                        <span class="badge badge-high" title="Connection to suspicious domain &#39;cdn.discordapp.com&#39; (matched IOC: cdn.discordapp.com)">SUSPICIOUS_DOMAIN</span>
+                        <span class="badge badge-medium" title="Downloaded file with risky extension &#39;.exe&#39;">SUSPICIOUS_EXTENSION</span>
+                    </span>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T10:30:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_form</code></td>
+                <td>Form entry: search = &#34;mimikatz tutorial&#34;</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T10:30:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_visit_recovered</code></td>
+                <td>[DELETED_PENDING] Visit: https://www.google.com/search?q=mimikatz+tutorial+windows — mimikatz tutorial windows - Google Search</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T11:05:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_visit</code></td>
+                <td>Visit: https://www.bing.com/search?q=credential+dumping+lsass — credential dumping lsass - Bing</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T11:05:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_search</code></td>
+                <td>Search: &#34;credential dumping lsass&#34; [bing.com]</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T11:10:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_visit</code></td>
+                <td>Visit: https://duckduckgo.com/?q=mimikatz+download+github — mimikatz download github at DuckDuckGo</td>
+                <td>
+                </td>
+            </tr>
+            <tr class="has-anomaly">
+                <td><span class="mono">2026-03-14T11:10:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_search</code></td>
+                <td>Search: &#34;mimikatz download github&#34; [duckduckgo.com]</td>
                 <td>
                     <span class="flag-stack">
                         <span class="badge badge-medium" title="Search query contains suspicious keyword &#39;mimikatz&#39;">SUSPICIOUS_KEYWORD</span>
@@ -541,10 +1296,148 @@ tr.has-anomaly td:first-child {
                 </td>
             </tr>
             <tr >
-                <td><span class="mono">2026-03-14T09:30:12+00:00</span></td>
+                <td><span class="mono">2026-03-14T11:10:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_cookie</code></td>
+                <td>Cookie: .duckduckgo.com [5]</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T11:10:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_form</code></td>
+                <td>Form entry: searchbar-history = &#34;mimikatz download github&#34;</td>
+                <td>
+                </td>
+            </tr>
+            <tr class="has-anomaly">
+                <td><span class="mono">2026-03-14T11:15:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_download</code></td>
+                <td>Download: https://pastebin.com/raw/fake_loader -&gt; C:\Users\jkowalski\Downloads\invoice.pdf.exe</td>
+                <td>
+                    <span class="flag-stack">
+                        <span class="badge badge-high" title="Connection to suspicious domain &#39;pastebin.com&#39; (matched IOC: pastebin.com)">SUSPICIOUS_DOMAIN</span>
+                        <span class="badge badge-high" title="Double-extension trick: &#39;invoice.pdf.exe&#39; appears as &#39;.pdf&#39; but is actually &#39;.exe&#39;">DOUBLE_EXTENSION</span>
+                    </span>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T11:35:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_visit</code></td>
+                <td>Visit: https://duckduckgo.com/?q=how+to+dump+ntlm+hashes — how to dump ntlm hashes at DuckDuckGo</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T11:35:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_search</code></td>
+                <td>Search: &#34;how to dump ntlm hashes&#34; [duckduckgo.com]</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T11:40:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_download</code></td>
+                <td>Download: https://github.com/gentilkiwi/mimikatz/releases/download/fake/mimikatz.zip -&gt; /home/jkowalski/Downloads/mimikatz.zip</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T11:40:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_bookmark</code></td>
+                <td>Bookmark: https://github.com/gentilkiwi/mimikatz — gentilkiwi/mimikatz (Toolbar)</td>
+                <td>
+                </td>
+            </tr>
+            <tr class="has-anomaly">
+                <td><span class="mono">2026-03-14T12:00:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_visit</code></td>
+                <td>Visit: http://darkfailenbsdla5mal2mxn2uz66od5vtzd5qozslagrfzachha3f3id.onion/ — Dark.Fail — Onion Mirror Index</td>
+                <td>
+                    <span class="flag-stack">
+                        <span class="badge badge-high" title="Connection to suspicious domain &#39;darkfailenbsdla5mal2mxn2uz66od5vtzd5qozslagrfzachha3f3id.onion&#39; (matched IOC: *.onion)">SUSPICIOUS_DOMAIN</span>
+                    </span>
+                </td>
+            </tr>
+            <tr class="has-anomaly">
+                <td><span class="mono">2026-03-14T12:30:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_download</code></td>
+                <td>Download: https://transfer.sh/fake/invoice.pdf.exe -&gt; /home/jkowalski/Downloads/invoice.pdf.exe</td>
+                <td>
+                    <span class="flag-stack">
+                        <span class="badge badge-high" title="Double-extension trick: &#39;invoice.pdf.exe&#39; appears as &#39;.pdf&#39; but is actually &#39;.exe&#39;">DOUBLE_EXTENSION</span>
+                    </span>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T12:30:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_cookie</code></td>
+                <td>Cookie: .transfer.sh [session]</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T13:00:00+00:00</span></td>
                 <td>chrome</td>
                 <td><code>chrome_visit</code></td>
-                <td>Visited: example.com/clean (no anomaly)</td>
+                <td>Visit: https://www.onet.pl/ — Onet – portal</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T13:00:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_cookie</code></td>
+                <td>Cookie: .onet.pl [onet_ubi]</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T13:20:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_visit</code></td>
+                <td>Visit: https://www.youtube.com/watch?v=dQw4w9WgXcQ — YouTube</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T14:00:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_visit</code></td>
+                <td>Visit: https://www.google.com/search?q=weather+warsaw — weather warsaw - Google Search</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T14:00:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_search</code></td>
+                <td>Search: &#34;weather warsaw&#34; [google]</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T14:30:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_visit</code></td>
+                <td>Visit: https://www.wp.pl/ — Wirtualna Polska</td>
+                <td>
+                </td>
+            </tr>
+            <tr >
+                <td><span class="mono">2026-03-14T15:00:00+00:00</span></td>
+                <td>firefox</td>
+                <td><code>firefox_visit</code></td>
+                <td>Visit: https://www.youtube.com/watch?v=fake — YouTube</td>
                 <td>
                 </td>
             </tr>
@@ -552,7 +1445,7 @@ tr.has-anomaly td:first-child {
     </table>
 
     <footer class="report-footer">
-        End of Report &nbsp;·&nbsp; Browser-Autopsy &nbsp;·&nbsp; 2026-05-17T18:15:48+00:00
+        End of Report &nbsp;·&nbsp; Browser-Autopsy &nbsp;·&nbsp; 2026-07-06T19:18:45+00:00
     </footer>
 
 </div>

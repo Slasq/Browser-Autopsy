@@ -1,0 +1,40 @@
+{
+  "roots": {
+    "bookmark_bar": {
+      "type": "folder",
+      "name": "Bookmarks bar",
+      "children": [
+        {
+          "type": "url",
+          "name": "GitHub",
+          "url": "https://github.com/",
+          "date_added": "13417950600000000"
+        },
+        {
+          "type": "url",
+          "name": "Python Docs",
+          "url": "https://docs.python.org/3/",
+          "date_added": "13417949520000000"
+        },
+        {
+          "type": "folder",
+          "name": "Research",
+          "children": [
+            {
+              "type": "url",
+              "name": "Pastebin loader",
+              "url": "https://pastebin.com/xK7mN2pQ",
+              "date_added": "13417955160000000"
+            }
+          ]
+        }
+      ]
+    },
+    "other": {
+      "type": "folder",
+      "name": "Other bookmarks",
+      "children": []
+    }
+  },
+  "version": 1
+}

@@ -47,6 +47,108 @@ def _anomaly(
     )
 
 
+# charts context (v2)
+class TestChartsContext:
+
+    def test_hourly_activity_has_24_bins(self):
+        ctx = _build_context([_ev()], [], case_id="X")
+        hours = ctx["activity_by_hour"]
+        assert len(hours) == 24
+        assert [h["hour"] for h in hours] == list(range(24))
+
+    def test_hourly_counts_and_pct(self):
+        events = [
+            _ev(ts=datetime(2024, 1, 1, 9, 5, tzinfo=timezone.utc)),
+            _ev(ts=datetime(2024, 1, 1, 9, 45, tzinfo=timezone.utc)),
+            _ev(ts=datetime(2024, 1, 1, 14, 0, tzinfo=timezone.utc)),
+        ]
+        hours = _build_context(events, [], case_id="X")["activity_by_hour"]
+        by_hour = {h["hour"]: h for h in hours}
+        assert by_hour[9]["count"] == 2
+        assert by_hour[9]["pct"] == 100.0
+        assert by_hour[14]["count"] == 1
+        assert by_hour[14]["pct"] == 50.0
+        assert by_hour[0]["count"] == 0
+
+    def test_hourly_ignores_none_timestamps(self):
+        ev = _ev()
+        ev.timestamp_utc = None
+        hours = _build_context([ev], [], case_id="X")["activity_by_hour"]
+        assert all(h["count"] == 0 for h in hours)
+
+    def test_viz_timeline_none_when_no_timestamps(self):
+        assert _build_context([], [], case_id="X")["viz_timeline"] is None
+
+    def test_viz_timeline_positions_scaled_to_span(self):
+        events = [
+            _ev(ts=datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)),
+            _ev(ts=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)),
+            _ev(ts=datetime(2024, 1, 2, 0, 0, tzinfo=timezone.utc)),
+        ]
+        viz = _build_context(events, [], case_id="X")["viz_timeline"]
+        points = viz["rows"][0]["points"]
+        assert [p["x_pct"] for p in points] == [0.0, 50.0, 100.0]
+
+    def test_viz_single_event_centered(self):
+        viz = _build_context([_ev()], [], case_id="X")["viz_timeline"]
+        assert viz["rows"][0]["points"][0]["x_pct"] == 50.0
+
+    def test_viz_one_row_per_browser(self):
+        events = [_ev(browser="chrome"), _ev(browser="tor", event_type="tor_visit")]
+        viz = _build_context(events, [], case_id="X")["viz_timeline"]
+        assert {r["browser"] for r in viz["rows"]} == {"chrome", "tor"}
+
+    def test_viz_categories(self):
+        events = [
+            _ev(event_type="chrome_visit"),
+            _ev(event_type="chrome_download"),
+            _ev(event_type="chrome_search"),
+            _ev(event_type="chrome_cookie"),
+            _ev(event_type="chrome_visit_recovered"),
+        ]
+        viz = _build_context(events, [], case_id="X")["viz_timeline"]
+        cats = [p["category"] for p in viz["rows"][0]["points"]]
+        assert cats == ["visit", "download", "search", "other", "visit"]
+
+    def test_viz_anomaly_flagged(self):
+        ev = _ev()
+        viz = _build_context([ev], [_anomaly(event=ev)], case_id="X")["viz_timeline"]
+        assert viz["rows"][0]["points"][0]["is_anomaly"] is True
+
+    def test_viz_axis_labels(self):
+        events = [
+            _ev(ts=datetime(2024, 3, 14, 8, 0, tzinfo=timezone.utc)),
+            _ev(ts=datetime(2024, 3, 14, 16, 30, tzinfo=timezone.utc)),
+        ]
+        viz = _build_context(events, [], case_id="X")["viz_timeline"]
+        assert viz["start_label"] == "2024-03-14 08:00 UTC"
+        assert viz["end_label"] == "2024-03-14 16:30 UTC"
+
+
+class TestChartsRendered:
+
+    def test_charts_present_in_html(self, tmp_path):
+        out = tmp_path / "r.html"
+        render_report([_ev()], [], out)
+        html = out.read_text(encoding="utf-8")
+        assert "Visual Timeline" in html
+        assert "Activity by Hour" in html
+        assert "viz-dot" in html
+        assert "hour-bar" in html
+
+    def test_no_viz_section_without_events(self, tmp_path):
+        out = tmp_path / "r.html"
+        render_report([], [], out)
+        html = out.read_text(encoding="utf-8")
+        assert "Visual Timeline" not in html
+
+    def test_anomalous_dot_marked(self, tmp_path):
+        ev = _ev()
+        out = tmp_path / "r.html"
+        render_report([ev], [_anomaly(event=ev)], out)
+        assert "viz-anomaly" in out.read_text(encoding="utf-8")
+
+
 # _build_context
 class TestBuildContext:
 

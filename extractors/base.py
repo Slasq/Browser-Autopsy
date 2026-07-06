@@ -30,6 +30,12 @@ class CorruptedDatabaseError(ArtifactError):
     """
 
 
+class MalformedArtifactError(ArtifactError):
+    """A non-SQLite artifact (JSON: Bookmarks, Preferences, extensions.json)
+    exists but cannot be parsed. The SQLite counterpart is
+    CorruptedDatabaseError."""
+
+
 # Chrome: mikrosek od 1601-01-01 → różnica do Unix epoch w mikrosekundach
 _CHROME_EPOCH_DELTA = 11_644_473_600_000_000
 
@@ -47,6 +53,17 @@ def firefox_timestamp_to_utc(microseconds: int) -> datetime:
     if microseconds == 0:
         return None
     return datetime.fromtimestamp(microseconds / 1_000_000, tz=timezone.utc)
+
+
+def unix_seconds_to_utc(seconds: int) -> datetime:
+    """Convert Unix timestamp in SECONDS to UTC datetime.
+
+    Used by artifacts that don't follow their browser's usual unit:
+    Chrome's autofill table and Firefox's cookie expiry both store seconds.
+    """
+    if seconds == 0:
+        return None
+    return datetime.fromtimestamp(seconds, tz=timezone.utc)
 
 
 def basename(path: str) -> str:
@@ -154,6 +171,65 @@ class DownloadEntry:
     danger_type: int                    # raw Chrome danger_type flag
     source_file: str
     sha256: str
+
+# Cookies
+@dataclass
+class CookieEntry:
+    """Single cookie record. Used by timeline.py (type: COOKIE).
+
+    Cookie VALUES are deliberately not extracted: Chromium encrypts them
+    (DPAPI / OS keychain — unavailable offline) and they'd be sensitive
+    anyway. Metadata (host, name, times) is what matters forensically.
+    """
+    timestamp: datetime | None       # creation time
+    last_access: datetime | None
+    expires: datetime | None         # None = session cookie
+    host: str
+    name: str
+    path: str
+    is_secure: bool
+    is_httponly: bool
+    source_file: str
+    sha256: str
+
+
+# Bookmarks
+@dataclass
+class BookmarkEntry:
+    """Single bookmark. Used by timeline.py (type: BOOKMARK)."""
+    timestamp: datetime | None       # date added
+    url: str
+    title: str
+    folder: str                      # parent folder name ('' if unknown/root)
+    source_file: str
+    sha256: str
+
+
+# Autofill / form history
+@dataclass
+class AutofillEntry:
+    """Single saved form field. Used by timeline.py (type: FORM_ENTRY)."""
+    timestamp: datetime | None       # first used
+    last_used: datetime | None
+    field_name: str
+    value: str
+    times_used: int
+    source_file: str
+    sha256: str
+
+
+# Installed extensions
+@dataclass
+class ExtensionEntry:
+    """Installed extension metadata. Used by timeline.py (type: EXTENSION)."""
+    timestamp: datetime | None       # install date (None if unknown)
+    ext_id: str
+    name: str
+    version: str
+    enabled: bool
+    source_file: str
+    sha256: str
+
 
 # Searches
 @dataclass

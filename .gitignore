@@ -231,3 +231,6 @@ artifacts/places.sqlite
 # Raporty
 *.html
 *.csv
+
+# Wygenerowane raporty (demo / przebiegi narzędzia)
+output/

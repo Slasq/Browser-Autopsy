@@ -1,3 +1,4 @@
+import json
 import os
 import platform
 import shutil
@@ -8,9 +9,16 @@ from extractors.base import (
     chrome_timestamp_to_utc,
     open_db,
     sha256_file,
+    unix_seconds_to_utc,
+    ArtifactNotFoundError,
+    MalformedArtifactError,
     VisitEntry,
     DownloadEntry,
     SearchEntry,
+    CookieEntry,
+    BookmarkEntry,
+    AutofillEntry,
+    ExtensionEntry,
     _extract_query,
 )
 
@@ -307,4 +315,294 @@ def extract_searches(profile_path: Path) -> list[SearchEntry]:
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
     print(f"[*] Znaleziono {len(entries)} wyszukiwań")
+    return entries
+
+
+# Cookies
+def _cookies_db_path(profile_path: Path) -> Path:
+    """Newer Chromium keeps cookies in Network/Cookies; older at profile root.
+
+    Returns whichever exists, preferring the newer location. When neither
+    exists, returns the newer path so the caller's error names the location
+    current Chromium actually uses.
+    """
+    network = profile_path / "Network" / "Cookies"
+    legacy = profile_path / "Cookies"
+    if network.exists():
+        return network
+    if legacy.exists():
+        return legacy
+    return network
+
+
+def extract_cookies(profile_path: Path) -> list[CookieEntry]:
+    """
+    Parse cookies from the 'Cookies' SQLite database (metadata only).
+
+    Values are NOT extracted — Chromium encrypts them with the OS keystore
+    (DPAPI / Keychain), which is unavailable when analysing copied artifacts.
+
+    Args:
+        profile_path: Path to Chromium profile directory
+            (contains 'Network/Cookies' or legacy 'Cookies').
+
+    Returns:
+        List of CookieEntry, sorted by creation time ascending (None last).
+
+    Raises:
+        FileNotFoundError: If no cookies database exists in profile_path.
+    """
+    db_path = _cookies_db_path(profile_path)
+    checksum = sha256_file(db_path)
+    print(f"[*] Plik: {db_path.name}\t SHA256: {checksum}")
+
+    conn, tmp_dir = open_db(db_path)
+    entries: list[CookieEntry] = []
+
+    try:
+        cursor = conn.execute(
+            """
+            SELECT
+                creation_utc,
+                last_access_utc,
+                expires_utc,
+                host_key,
+                name,
+                path,
+                is_secure,
+                is_httponly
+            FROM cookies
+            """
+        )
+        for row in cursor:
+            entries.append(
+                CookieEntry(
+                    timestamp=chrome_timestamp_to_utc(row["creation_utc"]),
+                    last_access=chrome_timestamp_to_utc(row["last_access_utc"]),
+                    expires=chrome_timestamp_to_utc(row["expires_utc"]),
+                    host=row["host_key"],
+                    name=row["name"],
+                    path=row["path"],
+                    is_secure=bool(row["is_secure"]),
+                    is_httponly=bool(row["is_httponly"]),
+                    source_file=str(db_path),
+                    sha256=checksum,
+                )
+            )
+    finally:
+        conn.close()
+        shutil.rmtree(tmp_dir)
+
+    entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
+
+    print(f"[*] Znaleziono {len(entries)} cookies")
+    return entries
+
+
+# Bookmarks
+def _walk_bookmark_nodes(node: dict, folder: str, out: list, db_path: Path,
+                         checksum: str) -> None:
+    """Depth-first walk over the Bookmarks JSON tree collecting url nodes."""
+    node_type = node.get("type")
+    if node_type == "url":
+        # date_added is a WebKit-epoch µs value stored as a STRING
+        try:
+            date_added = int(node.get("date_added", 0))
+        except (TypeError, ValueError):
+            date_added = 0
+        out.append(
+            BookmarkEntry(
+                timestamp=chrome_timestamp_to_utc(date_added),
+                url=node.get("url", ""),
+                title=node.get("name", ""),
+                folder=folder,
+                source_file=str(db_path),
+                sha256=checksum,
+            )
+        )
+    elif node_type == "folder":
+        child_folder = node.get("name", "") or folder
+        for child in node.get("children", []):
+            _walk_bookmark_nodes(child, child_folder, out, db_path, checksum)
+
+
+def extract_bookmarks(profile_path: Path) -> list[BookmarkEntry]:
+    """
+    Parse bookmarks from the 'Bookmarks' JSON file.
+
+    Walks all roots (bookmark_bar, other, synced) recursively; each url node
+    becomes one BookmarkEntry with its direct parent folder name.
+
+    Args:
+        profile_path: Path to Chromium profile directory (contains 'Bookmarks').
+
+    Returns:
+        List of BookmarkEntry, sorted by date-added ascending (None last).
+
+    Raises:
+        FileNotFoundError: If 'Bookmarks' does not exist in profile_path.
+        MalformedArtifactError: If the file exists but is not valid JSON.
+    """
+    db_path = profile_path / "Bookmarks"
+    checksum = sha256_file(db_path)
+    print(f"[*] Plik: Bookmarks\t SHA256: {checksum}")
+
+    try:
+        data = json.loads(db_path.read_text(encoding="utf-8"))
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise MalformedArtifactError(
+            f"Not a valid Bookmarks JSON file: {db_path} ({exc})"
+        ) from exc
+
+    entries: list[BookmarkEntry] = []
+    roots = data.get("roots", {}) if isinstance(data, dict) else {}
+    for root in roots.values():
+        if isinstance(root, dict):
+            _walk_bookmark_nodes(root, root.get("name", ""), entries,
+                                 db_path, checksum)
+
+    entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
+
+    print(f"[*] Znaleziono {len(entries)} zakładek")
+    return entries
+
+
+# Autofill
+def extract_autofill(profile_path: Path) -> list[AutofillEntry]:
+    """
+    Parse saved form-field history from the 'Web Data' SQLite database.
+
+    UWAGA: the autofill table stores Unix SECONDS (date_created,
+    date_last_used) — not the WebKit µs used everywhere else in Chromium.
+
+    Args:
+        profile_path: Path to Chromium profile directory (contains 'Web Data').
+
+    Returns:
+        List of AutofillEntry, sorted by first-used ascending (None last).
+
+    Raises:
+        FileNotFoundError: If 'Web Data' does not exist in profile_path.
+    """
+    db_path = profile_path / "Web Data"
+    checksum = sha256_file(db_path)
+    print(f"[*] Plik: Web Data\t SHA256: {checksum}")
+
+    conn, tmp_dir = open_db(db_path)
+    entries: list[AutofillEntry] = []
+
+    try:
+        cursor = conn.execute(
+            """
+            SELECT name, value, count, date_created, date_last_used
+            FROM autofill
+            """
+        )
+        for row in cursor:
+            entries.append(
+                AutofillEntry(
+                    timestamp=unix_seconds_to_utc(row["date_created"] or 0),
+                    last_used=unix_seconds_to_utc(row["date_last_used"] or 0),
+                    field_name=row["name"],
+                    value=row["value"],
+                    times_used=row["count"] or 0,
+                    source_file=str(db_path),
+                    sha256=checksum,
+                )
+            )
+    finally:
+        conn.close()
+        shutil.rmtree(tmp_dir)
+
+    entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
+
+    print(f"[*] Znaleziono {len(entries)} wpisów autofill")
+    return entries
+
+
+# Extensions
+def _extension_install_time(settings: dict):
+    """Best-effort install timestamp — the key changed across Chromium versions.
+
+    Both install_time (old) and first_install_time (new) are WebKit-epoch µs
+    stored as strings.
+    """
+    for key in ("first_install_time", "install_time"):
+        raw = settings.get(key)
+        if raw:
+            try:
+                return chrome_timestamp_to_utc(int(raw))
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def extract_extensions(profile_path: Path) -> list[ExtensionEntry]:
+    """
+    Parse installed-extension metadata from the 'Preferences' JSON file.
+
+    Reads extensions.settings from 'Preferences'; on Windows Chromium moves
+    that section to 'Secure Preferences', so both files are consulted
+    (whichever exist). Component/built-in entries without a manifest are
+    skipped — they are not user-installed extensions.
+
+    Args:
+        profile_path: Path to Chromium profile directory.
+
+    Returns:
+        List of ExtensionEntry, sorted by install time ascending (None last).
+
+    Raises:
+        FileNotFoundError: If neither 'Preferences' nor 'Secure Preferences'
+            exists in profile_path.
+        MalformedArtifactError: If a preferences file is not valid JSON.
+    """
+    candidates = [profile_path / "Preferences",
+                  profile_path / "Secure Preferences"]
+    present = [p for p in candidates if p.exists()]
+    if not present:
+        raise ArtifactNotFoundError(
+            f"Artifact not found: {candidates[0]} (ani 'Secure Preferences')"
+        )
+
+    entries: list[ExtensionEntry] = []
+
+    for db_path in present:
+        checksum = sha256_file(db_path)
+        print(f"[*] Plik: {db_path.name}\t SHA256: {checksum}")
+
+        try:
+            data = json.loads(db_path.read_text(encoding="utf-8"))
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise MalformedArtifactError(
+                f"Not a valid Preferences JSON file: {db_path} ({exc})"
+            ) from exc
+
+        settings = (
+            data.get("extensions", {}).get("settings", {})
+            if isinstance(data, dict) else {}
+        )
+        for ext_id, ext in settings.items():
+            if not isinstance(ext, dict):
+                continue
+            manifest = ext.get("manifest")
+            if not isinstance(manifest, dict):
+                continue  # component / corrupted entry
+            entries.append(
+                ExtensionEntry(
+                    timestamp=_extension_install_time(ext),
+                    ext_id=ext_id,
+                    name=manifest.get("name", ""),
+                    version=manifest.get("version", ""),
+                    # state: 1 = enabled, 0 = disabled (older Chromium);
+                    # newer builds drop 'state' — treat missing as enabled
+                    enabled=bool(ext.get("state", 1)),
+                    source_file=str(db_path),
+                    sha256=checksum,
+                )
+            )
+
+    entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
+
+    print(f"[*] Znaleziono {len(entries)} rozszerzeń")
     return entries
