@@ -157,8 +157,6 @@ class TestExtractCookies:
         assert e.last_access == expected
         assert e.expires == expected
 
-<<<<<<< Updated upstream
-=======
     def test_expiry_in_milliseconds(self, tmp_path):
         # aktualny Firefox zapisuje expiry w MILISEKUNDACH
         _make_cookies_db(tmp_path, [
@@ -168,7 +166,6 @@ class TestExtractCookies:
         e = extract_cookies(tmp_path)[0]
         assert e.expires == datetime(2024, 1, 1, tzinfo=timezone.utc)
 
->>>>>>> Stashed changes
     def test_flags_mapped_to_bool(self, tmp_path):
         _make_cookies_db(tmp_path, [
             {"host": ".x.com", "name": "f", "creationTime": _US_2024,

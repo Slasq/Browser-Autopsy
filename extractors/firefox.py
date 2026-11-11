@@ -406,11 +406,6 @@ def extract_searches(profile_path: Path) -> list[SearchEntry]:
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
     print(f"[*] Znaleziono {len(entries)} wyszukiwań")
-<<<<<<< Updated upstream
-=======
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
     return entries
 
 
@@ -420,12 +415,8 @@ def extract_cookies(profile_path: Path) -> list[CookieEntry]:
     Parse cookies from the 'cookies.sqlite' database.
 
     Timestamp units in moz_cookies are mixed (typowe dla Mozilli):
-<<<<<<< Updated upstream
-    creationTime / lastAccessed are µs since Unix epoch, expiry is SECONDS.
-=======
     creationTime / lastAccessed are µs since Unix epoch, expiry is SECONDS
     in older Firefox and MILLISECONDS in current Firefox (cookie schema 17).
->>>>>>> Stashed changes
 
     Args:
         profile_path: Path to Firefox profile directory (contains 'cookies.sqlite').
@@ -459,23 +450,16 @@ def extract_cookies(profile_path: Path) -> list[CookieEntry]:
             """
         )
         for row in cursor:
-<<<<<<< Updated upstream
-=======
             expiry = row["expiry"] or 0
             # Jednostkę expiry rozpoznajemy po wielkości: 1e11 s to rok 5138,
             # a 1e11 ms to rok 1973. Żadne realne expiry nie leży po złej stronie.
             if expiry > 100_000_000_000:
                 expiry //= 1000
->>>>>>> Stashed changes
             entries.append(
                 CookieEntry(
                     timestamp=firefox_timestamp_to_utc(row["creationTime"] or 0),
                     last_access=firefox_timestamp_to_utc(row["lastAccessed"] or 0),
-<<<<<<< Updated upstream
-                    expires=unix_seconds_to_utc(row["expiry"] or 0),
-=======
                     expires=unix_seconds_to_utc(expiry),
->>>>>>> Stashed changes
                     host=row["host"],
                     name=row["name"],
                     path=row["path"],
@@ -657,8 +641,4 @@ def extract_extensions(profile_path: Path) -> list[ExtensionEntry]:
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
     print(f"[*] Znaleziono {len(entries)} rozszerzeń")
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
->>>>>>> Stashed changes
     return entries

@@ -77,24 +77,11 @@ def firefox_timestamp_to_utc(microseconds: int) -> datetime:
     return _unix_us_to_utc(microseconds)
 
 
-<<<<<<< Updated upstream
-=======
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
 def unix_seconds_to_utc(seconds: int) -> datetime:
     """Convert Unix timestamp in SECONDS to UTC datetime.
 
     Used by artifacts that don't follow their browser's usual unit:
     Chrome's autofill table and Firefox's cookie expiry both store seconds.
-<<<<<<< Updated upstream
-    """
-    if seconds == 0:
-        return None
-    return datetime.fromtimestamp(seconds, tz=timezone.utc)
-
-
-=======
     Returns None for 0, NULL and out-of-range values.
     """
     if not seconds:
@@ -102,8 +89,6 @@ def unix_seconds_to_utc(seconds: int) -> datetime:
     return _unix_us_to_utc(seconds * 1_000_000)
 
 
->>>>>>> Stashed changes
->>>>>>> Stashed changes
 def basename(path: str) -> str:
     """Cross-platform basename for stored path STRINGS — handles both '/' and '\\'.
 
