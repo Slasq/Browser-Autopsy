@@ -13,6 +13,7 @@ own dedicated test files. main.py's job is plumbing, so that's what we test.
 from __future__ import annotations
 
 import argparse
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -408,6 +409,48 @@ class TestMainInputDiscovery:
         assert rc == 1
         assert "no browser profiles" in capsys.readouterr().err.lower()
 
+    def test_broken_discovered_profile_is_skipped(self, tmp_path, ioc_file,
+                                                  stub_pipeline, monkeypatch, capsys):
+        # zepsuty profil Chromium (pusty plik History) nie zatrzymuje profilu Gecko
+        evidence = self._evidence_dir(tmp_path)
+        analyzed = []
+
+        def flaky_build_timeline(**kwargs):
+            if "chrome_profile" in kwargs:
+                raise sqlite3.OperationalError("no such table: visits")
+            analyzed.append(kwargs)
+            return []
+        monkeypatch.setattr(cli_main, "build_timeline", flaky_build_timeline)
+
+        rc = main([
+            "--input", str(evidence),
+            "--ioc-file", str(ioc_file),
+            "--output-dir", str(tmp_path / "out"),
+        ])
+        assert rc == 0
+        assert len(analyzed) == 1
+        assert len(stub_pipeline["render_report"]) == 1
+        err = capsys.readouterr().err
+        assert "skipped profile" in err.lower()
+        assert "no such table" in err
+
+    def test_all_discovered_profiles_broken_returns_1(self, tmp_path, ioc_file,
+                                                      stub_pipeline, monkeypatch, capsys):
+        evidence = self._evidence_dir(tmp_path)
+
+        def raise_locked(**kwargs):
+            raise PermissionError(13, "Permission denied")
+        monkeypatch.setattr(cli_main, "build_timeline", raise_locked)
+
+        rc = main([
+            "--input", str(evidence),
+            "--ioc-file", str(ioc_file),
+            "--output-dir", str(tmp_path / "out"),
+        ])
+        assert rc == 1
+        assert stub_pipeline["render_report"] == []
+        assert "none of the profiles" in capsys.readouterr().err.lower()
+
 
 # main() — error paths
 class TestMainErrors:
@@ -457,6 +500,23 @@ class TestMainErrors:
         rc = main(_base_argv(ioc_file, tmp_path / "out"))
         assert rc == 1
         assert "malformed" in capsys.readouterr().err
+
+    @pytest.mark.parametrize("exc", [
+        # baza o innym schemacie, np. pusty plik History
+        sqlite3.OperationalError("no such table: visits"),
+        # plik zablokowany przez działającą przeglądarkę
+        PermissionError(13, "Permission denied"),
+    ])
+    def test_unreadable_artifact_returns_1(self, exc, capsys, tmp_path, ioc_file,
+                                           monkeypatch):
+        # jawnie podany profil: błąd odczytu kończy przebieg kodem 1, bez tracebacka
+        def raise_exc(**kwargs):
+            raise exc
+        monkeypatch.setattr(cli_main, "build_timeline", raise_exc)
+
+        rc = main(_base_argv(ioc_file, tmp_path / "out"))
+        assert rc == 1
+        assert "cannot read artifact" in capsys.readouterr().err.lower()
 
     def test_invalid_iso_datetime_exits(self, ioc_file, tmp_path):
         # argparse robi sys.exit(2) na ArgumentTypeError

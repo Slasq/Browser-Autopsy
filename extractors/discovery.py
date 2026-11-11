@@ -81,7 +81,13 @@ def discover_profiles(input_dir: Path) -> list[DiscoveredProfile]:
     found: list[DiscoveredProfile] = []
 
     def _scan(directory: Path) -> None:
-        engine = _classify(directory)
+        try:
+            engine = _classify(directory)
+            children = sorted(directory.iterdir()) if engine is None else []
+        except OSError as e:
+            # e.g. 'System Volume Information' on a mounted disk image
+            print(f"[!] Skipped unreadable directory: {directory} ({e})")
+            return
         if engine is not None:
             relative = str(directory.relative_to(input_dir))
             if relative == ".":  # input dir itself is the profile
@@ -92,7 +98,7 @@ def discover_profiles(input_dir: Path) -> list[DiscoveredProfile]:
                 path=directory,
             ))
             return  # profile found — don't descend further
-        for child in sorted(directory.iterdir()):
+        for child in children:
             if child.is_dir():
                 _scan(child)
 

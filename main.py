@@ -16,6 +16,7 @@ Exit codes follow common DFIR-tool conventions:
 from __future__ import annotations
 
 import argparse
+import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -228,19 +229,30 @@ def main(argv: list[str] | None = None) -> int:
                 firefox_browser_name=args.firefox_browser,
                 wal_recover=args.wal_recover,
             ))
+        skipped = 0
         for prof in discovered:
-            if prof.engine == "chromium":
-                events.extend(build_timeline(
-                    chrome_profile=prof.path,
-                    chrome_browser_name=prof.browser,
-                    wal_recover=args.wal_recover,
-                ))
-            else:
-                events.extend(build_timeline(
-                    firefox_profile=prof.path,
-                    firefox_browser_name=prof.browser,
-                    wal_recover=args.wal_recover,
-                ))
+            # profil z --input jest znaleziony automatycznie, więc jeden zepsuty
+            # nie może zatrzymać analizy pozostałych: ostrzeżenie i dalej
+            try:
+                if prof.engine == "chromium":
+                    events.extend(build_timeline(
+                        chrome_profile=prof.path,
+                        chrome_browser_name=prof.browser,
+                        wal_recover=args.wal_recover,
+                    ))
+                else:
+                    events.extend(build_timeline(
+                        firefox_profile=prof.path,
+                        firefox_browser_name=prof.browser,
+                        wal_recover=args.wal_recover,
+                    ))
+            except (ArtifactError, sqlite3.Error, OSError) as e:
+                _err(f"[!] Skipped profile {prof.path}: {e}")
+                skipped += 1
+        if discovered and skipped == len(discovered) \
+                and args.chrome_profile is None and args.firefox_profile is None:
+            _err(f"[!] None of the profiles under {args.input} could be analyzed")
+            return 1
         # each build_timeline call sorts its own slice — merged list needs one
         # global re-sort
         events.sort(key=lambda ev: (ev.timestamp_utc is None, ev.timestamp_utc))
@@ -251,6 +263,10 @@ def main(argv: list[str] | None = None) -> int:
     except FileNotFoundError as e:
         # defensywnie nietypowane FileNotFoundError spoza warstwy artefaktów
         _err(f"[!] Artifact not found: {e}")
+        return 1
+    except (sqlite3.Error, OSError) as e:
+        # baza o innym schemacie (np. pusty plik History) albo plik zablokowany przez przeglądarkę
+        _err(f"[!] Cannot read artifact: {e}")
         return 1
     _log(f"[+] Timeline: {len(events)} events")
 

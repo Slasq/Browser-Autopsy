@@ -4,6 +4,7 @@ NOTE: Duplicates are NOT removed because same URL/time may be from diffrent sour
 
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -174,7 +175,9 @@ def _extend_optional(events: list[TimelineEvent], module, engine: str,
             continue
         try:
             entries = extractor(profile)
-        except ArtifactError as e:
+        # sqlite3.Error: inny schemat w starszej wersji przeglądarki,
+        # OSError: plik zablokowany albo bez uprawnień
+        except (ArtifactError, sqlite3.Error, OSError) as e:
             print(f"[!] Pominięto {func_name} ({browser}): {e}")
             continue
         events.extend(adapter(entry, browser) for entry in entries)

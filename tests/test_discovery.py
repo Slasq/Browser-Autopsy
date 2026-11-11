@@ -96,6 +96,23 @@ class TestDiscoverProfiles:
         assert len(result) == 1
         assert result[0].path == profile
 
+    def test_unreadable_directory_is_skipped(self, tmp_path, monkeypatch, capsys):
+        # np. 'System Volume Information' na zamontowanym obrazie dysku
+        _chromium_profile(tmp_path / "chrome")
+        locked = tmp_path / "locked"
+        locked.mkdir()
+        real_iterdir = Path.iterdir
+
+        def fake_iterdir(self):
+            if self == locked:
+                raise PermissionError(13, "Permission denied")
+            return real_iterdir(self)
+        monkeypatch.setattr(Path, "iterdir", fake_iterdir)
+
+        result = discover_profiles(tmp_path)
+        assert [p.path.name for p in result] == ["chrome"]
+        assert "locked" in capsys.readouterr().out
+
     def test_deterministic_order(self, tmp_path):
         _chromium_profile(tmp_path / "b_chrome")
         _chromium_profile(tmp_path / "a_chrome")

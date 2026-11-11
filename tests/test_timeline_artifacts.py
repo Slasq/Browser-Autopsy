@@ -148,6 +148,22 @@ class TestOptionalArtifacts:
         assert events == []
         assert "Pominięto" in capsys.readouterr().out
 
+    def test_optional_artifact_with_other_schema_skipped(self, core_extractors_stubbed,
+                                                         monkeypatch, capsys):
+        # starsza wersja przeglądarki: tabela istnieje, ale bez kolumny z zapytania
+        import sqlite3
+
+        def boom(p):
+            raise sqlite3.OperationalError("no such column: is_httponly")
+        monkeypatch.setattr(timeline.chrome, "extract_cookies", boom)
+        monkeypatch.setattr(timeline.chrome, "extract_bookmarks",
+                            lambda p: [_make_bookmark()])
+
+        events = build_timeline(chrome_profile=Path("/fake"))
+        # ciasteczka pominięte, zakładki z tego samego profilu zostają
+        assert [e.event_type for e in events] == ["chrome_bookmark"]
+        assert "Pominięto extract_cookies" in capsys.readouterr().out
+
     def test_cookie_events_included(self, core_extractors_stubbed, monkeypatch):
         monkeypatch.setattr(timeline.chrome, "extract_cookies",
                             lambda p: [_make_cookie()])
