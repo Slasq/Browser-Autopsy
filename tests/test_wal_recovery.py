@@ -120,6 +120,13 @@ def _insert_in_wal(conn, insert, ts_a, ts_b):
     insert(conn, "https://fresh.example.com", "Fresh", ts_b)
 
 
+def _retitle_in_wal(conn, insert, ts_a, ts_b):
+    # sama zmiana tytułu strony: żaden rekord nie znika ani nie przybywa
+    table = "urls" if insert is _insert_chrome_visit else "moz_places"
+    conn.execute(f"UPDATE {table} SET title = '(1) Kept'"
+                 " WHERE url = 'https://kept.example.com'")
+
+
 class TestRecoverHistoryChromium:
     def test_deleted_record_recovered(self, tmp_path):
         profile = _build_profile_with_wal(tmp_path, "chromium", _delete_in_wal)
@@ -137,6 +144,11 @@ class TestRecoverHistoryChromium:
         assert len(entries) == 1
         assert entries[0].url == "https://fresh.example.com"
         assert entries[0].recovery == "WAL_ONLY"
+
+    def test_title_change_is_not_a_deletion(self, tmp_path):
+        # przeglądarka nadpisuje tytuł przy kolejnej wizycie (np. "(1) Inbox")
+        profile = _build_profile_with_wal(tmp_path, "chromium", _retitle_in_wal)
+        assert recover_history(profile, "chromium") == []
 
     def test_no_wal_file_returns_empty(self, tmp_path):
         profile = _build_profile_with_wal(tmp_path, "chromium", _delete_in_wal)

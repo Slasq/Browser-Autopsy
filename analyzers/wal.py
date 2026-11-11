@@ -65,8 +65,8 @@ class RecoveredEntry:
     sha256: str
 
 
-def _read_rows(db_copy: Path, query: str) -> set[tuple]:
-    """Read (url, ts, title) rows from a temp copy of a history database.
+def _read_rows(db_copy: Path, query: str) -> dict[tuple, str]:
+    """Read history rows from a temp copy as {(url, ts): title}.
 
     Plain read-write connect — the copy is disposable, and a read-only URI
     connection can fail on WAL recovery (SQLITE_READONLY_RECOVERY).
@@ -74,8 +74,11 @@ def _read_rows(db_copy: Path, query: str) -> set[tuple]:
     conn = sqlite3.connect(db_copy)
     conn.row_factory = sqlite3.Row
     try:
+        # Kluczem wizyty jest (url, ts). Tytuł do klucza nie wchodzi: przeglądarka
+        # nadpisuje go przy kolejnych wizytach i sama zmiana tytułu w WAL
+        # wyglądałaby jak usunięcie rekordu.
         return {
-            (row["url"], row["ts"], row["title"] or "")
+            (row["url"], row["ts"]): row["title"] or ""
             for row in conn.execute(query)
         }
     except sqlite3.DatabaseError as exc:
@@ -137,23 +140,23 @@ def recover_history(profile_path: Path, engine: str) -> list[RecoveredEntry]:
         RecoveredEntry(
             timestamp=to_utc(ts or 0),
             url=url,
-            title=title,
+            title=main_rows[(url, ts)],
             recovery="DELETED_PENDING",
             source_file=str(db_path),
             sha256=checksum,
         )
-        for (url, ts, title) in main_rows - replayed_rows
+        for (url, ts) in main_rows.keys() - replayed_rows.keys()
     ]
     entries += [
         RecoveredEntry(
             timestamp=to_utc(ts or 0),
             url=url,
-            title=title,
+            title=replayed_rows[(url, ts)],
             recovery="WAL_ONLY",
             source_file=str(db_path),
             sha256=checksum,
         )
-        for (url, ts, title) in replayed_rows - main_rows
+        for (url, ts) in replayed_rows.keys() - main_rows.keys()
     ]
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
