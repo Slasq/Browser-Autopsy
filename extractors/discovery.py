@@ -16,6 +16,7 @@ identical within an engine family.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,12 +36,15 @@ def _guess_label(relative: str, engine: str) -> str:
     """Guess the browser label from a profile's relative path.
 
     Longer names are checked first so 'chromium' wins over 'chrome' and
-    'librewolf' is never mistaken for 'firefox'.
+    'librewolf' is never mistaken for 'firefox'. A name must stand as a
+    whole word: 'victor' and 'storage' contain 'tor' but are not Tor.
     """
     haystack = relative.lower().replace("\\", "/")
     labels = CHROMIUM_BROWSERS if engine == "chromium" else GECKO_BROWSERS
     for label in sorted(labels, key=len, reverse=True):
-        if label in haystack:
+        # vendors glue the name to these two words: TorBrowser, YandexBrowser,
+        # BraveSoftware, com.operasoftware.Opera
+        if re.search(rf"(?<![a-z]){label}(?:browser|software)?(?![a-z])", haystack):
             return label
     return "chrome" if engine == "chromium" else "firefox"
 

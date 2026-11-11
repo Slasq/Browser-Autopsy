@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from extractors.discovery import DiscoveredProfile, discover_profiles
+from extractors.discovery import DiscoveredProfile, _guess_label, discover_profiles
 
 
 def _chromium_profile(directory: Path) -> Path:
@@ -18,6 +18,28 @@ def _gecko_profile(directory: Path) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "places.sqlite").touch()
     return directory
+
+
+class TestGuessLabel:
+    @pytest.mark.parametrize("relative, engine, expected", [
+        # nazwa przeglądarki jako podciąg innego słowa nie jest etykietą
+        ("victor_laptop/abcd.default-release", "gecko", "firefox"),
+        ("export_directory/profile", "gecko", "firefox"),
+        ("case7/storage/p1", "gecko", "firefox"),
+        ("knowledge_base/Default", "chromium", "chrome"),
+        ("operations/Default", "chromium", "chrome"),
+        # prawdziwe ścieżki instalacji, także sklejone z "Browser"/"Software"
+        ("TorBrowser-Data/Browser/abcd.default", "gecko", "tor"),
+        (r"Tor Browser\Browser\TorBrowser\Data\Browser\profile.default", "gecko", "tor"),
+        (".mozilla/firefox/abcd.default-release", "gecko", "firefox"),
+        ("YandexBrowser/User Data/Default", "chromium", "yandex"),
+        ("BraveSoftware/Default", "chromium", "brave"),
+        ("com.operasoftware.Opera", "chromium", "opera"),
+        ("Microsoft/Edge/User Data/Default", "chromium", "edge"),
+        ("Google/Chrome/User Data/Default", "chromium", "chrome"),
+    ])
+    def test_label_is_matched_as_whole_word(self, relative, engine, expected):
+        assert _guess_label(relative, engine) == expected
 
 
 class TestDiscoverProfiles:
