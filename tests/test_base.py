@@ -95,6 +95,30 @@ class TestExtractQuery:
         assert engine == expected_engine
         assert query == expected_query
 
+    @pytest.mark.parametrize("url, expected_engine", [
+        # końcówki krajowe i subdomeny prawdziwych wyszukiwarek
+        ("https://www.google.co.uk/search?q=x",      "google"),
+        ("https://www.google.com.pl/search?q=x",     "google"),
+        ("https://www.google.com/maps?q=x",          "google"),
+        ("https://yandex.com.tr/search/?text=x",     "yandex"),
+        ("https://pl.search.yahoo.com/search?p=x",   "search.yahoo.com"),
+        ("https://m.youtube.com/results?search_query=x", "youtube.com"),
+    ])
+    def test_regional_and_subdomain_hosts(self, url, expected_engine):
+        assert _extract_query(url) == (expected_engine, "x")
+
+    @pytest.mark.parametrize("url", [
+        # przekierowanie Google po kliknięciu linku: q to adres docelowy
+        "https://www.google.com/url?q=https://example.com/doc&sa=D",
+        # cudza domena z nazwą wyszukiwarki w środku
+        "https://google.evil.example/search?q=x",
+        "https://google.com.evil.example/search?q=x",
+        "https://notbing.com/search?q=x",
+        "https://bing.com.evil.example/search?q=x",
+    ])
+    def test_redirect_and_lookalike_hosts_are_not_searches(self, url):
+        assert _extract_query(url) is None
+
     def test_non_search_url_returns_none(self):
         assert _extract_query("https://example.com/article") is None
 

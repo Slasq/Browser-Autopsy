@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from analyzers.anomaly import Anomaly
-from analyzers.timeline import TimelineEvent
+from analyzers.timeline import TimelineEvent, collect_source_files
 
 
 def _event_to_dict(event: TimelineEvent) -> dict[str, Any]:
@@ -60,10 +60,7 @@ def export_to_json(
         The output_path, for convenient chaining.
     """
     # Unique source files for chain of custody (insertion order preserved).
-    source_files: dict[str, str] = {}
-    for e in events:
-        if e.source_file not in source_files:
-            source_files[e.source_file] = e.source_sha256
+    source_files = collect_source_files(events)
 
     document = {
         "tool": "browser-autopsy",

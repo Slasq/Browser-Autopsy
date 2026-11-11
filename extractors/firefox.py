@@ -293,6 +293,8 @@ def extract_downloads(profile_path: Path) -> list[DownloadEntry]:
             )
             if row["anno_name"] == "downloads/destinationFileURI":
                 g["fileuri"] = row["anno_content"]
+                # pobranie bez annotacji metaData też ma datę: dateAdded tej annotacji
+                g["date_added"] = g["date_added"] or row["date_added"]
             elif row["anno_name"] == "downloads/metaData":
                 g["metadata"] = row["anno_content"]
                 g["date_added"] = row["date_added"]

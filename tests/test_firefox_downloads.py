@@ -112,6 +112,24 @@ class TestFirefoxExtractDownloads:
         ])
         assert extract_downloads(tmp_profile)[0].timestamp == datetime(2024, 1, 1, tzinfo=timezone.utc)
 
+    def test_timestamp_without_metadata_annotation(self, tmp_profile):
+        """Download with only destinationFileURI still gets that annotation's dateAdded."""
+        db_path = _make_firefox_places_with_downloads(tmp_profile, [
+            {"url": "https://x.com/f.zip", "target_path": "/home/u/f.zip",
+             "date_added": _TS_2024_US},
+        ])
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "DELETE FROM moz_annos WHERE anno_attribute_id = "
+            "(SELECT id FROM moz_anno_attributes WHERE name = 'downloads/metaData')"
+        )
+        conn.commit()
+        conn.close()
+
+        entry = extract_downloads(tmp_profile)[0]
+        assert entry.timestamp == datetime(2024, 1, 1, tzinfo=timezone.utc)
+        assert entry.filename == "f.zip"
+
     def test_target_path_from_file_uri(self, tmp_profile):
         _make_firefox_places_with_downloads(tmp_profile, [
             {"url": "https://x.com/f.zip",

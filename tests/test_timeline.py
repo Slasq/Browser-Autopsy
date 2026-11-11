@@ -8,6 +8,7 @@ from analyzers import timeline
 from analyzers.timeline import (
     TimelineEvent,
     build_timeline,
+    collect_source_files,
     filter_by_time,
     _visit_to_event,
     _download_to_event,
@@ -113,6 +114,57 @@ class TestDownloadAdapter:
         ev = _download_to_event(d, "chrome")
         assert ev.summary == "Download: https://example.com/file.zip"
         assert ev.details["target_path"] is None
+
+    @staticmethod
+    def _real_entry(state):
+        from extractors.base import DownloadEntry
+        return DownloadEntry(
+            timestamp=TS_JAN1, end_timestamp=TS_JAN2,
+            url="https://example.com/tool.exe",
+            target_path=r"C:\Users\u\Downloads\tool.exe", filename="tool.exe",
+            file_size=4096, state=state, danger_type=1,
+            source_file="History", sha256=SHA_FAKE,
+        )
+
+    def test_state_size_and_filename_reach_details(self):
+        # pola z ekstraktora mają trafić do raportu, nie tylko url i ścieżka
+        ev = _download_to_event(self._real_entry("COMPLETE"), "chrome")
+        assert ev.details["filename"] == "tool.exe"
+        assert ev.details["state"] == "COMPLETE"
+        assert ev.details["file_size"] == 4096
+        assert ev.details["danger_type"] == 1
+        assert ev.details["end_time"] == "2024-01-02T00:00:00+00:00"
+        assert "[" not in ev.summary
+
+    def test_incomplete_download_is_marked_in_summary(self):
+        # anulowane pobranie nie może wyglądać w raporcie jak ukończone
+        ev = _download_to_event(self._real_entry("CANCELLED"), "chrome")
+        assert ev.summary.endswith("[CANCELLED]")
+
+
+class TestCollectSourceFiles:
+    def test_unique_files_in_order(self):
+        events = [
+            _visit_to_event(_make_visit(TS_JAN1, source_file="/a/History"), "chrome"),
+            _visit_to_event(_make_visit(TS_JAN2, source_file="/a/History"), "chrome"),
+            _visit_to_event(_make_visit(TS_JAN3, source_file="/b/places.sqlite"), "firefox"),
+        ]
+        assert collect_source_files(events) == {
+            "/a/History": SHA_FAKE, "/b/places.sqlite": SHA_FAKE,
+        }
+
+    def test_wal_sidecar_is_listed_with_its_own_hash(self, tmp_path):
+        # open_db odtwarza -wal, więc jego treść wpływa na wynik i ma mieć hash
+        import hashlib
+        db = tmp_path / "History"
+        db.write_bytes(b"main image")
+        wal = tmp_path / "History-wal"
+        wal.write_bytes(b"uncheckpointed frames")
+        events = [_visit_to_event(_make_visit(TS_JAN1, source_file=str(db)), "chrome")]
+
+        files = collect_source_files(events)
+        assert list(files) == [str(db), str(wal)]
+        assert files[str(wal)] == hashlib.sha256(b"uncheckpointed frames").hexdigest()
 
 
 class TestSearchAdapter:

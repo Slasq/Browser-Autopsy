@@ -252,3 +252,33 @@ class TestNoneTimestamp:
         assert len(rows) == 1
         assert rows[0]["timestamp_utc"] == ""
         assert rows[0]["rule_id"] == "SUSPICIOUS_DOMAIN"
+
+
+# Spreadsheet formula injection
+class TestFormulaCells:
+
+    @pytest.mark.parametrize("query", [
+        '=HYPERLINK("http://evil.example","click")',
+        "+1+1",
+        "-2+3",
+        "@SUM(A1:A2)",
+    ])
+    def test_timeline_cell_starting_like_a_formula_is_neutralised(self, tmp_path, query):
+        # zapytanie pochodzi od podejrzanego, a CSV otwiera śledczy w Excelu
+        ev = _ev(event_type="chrome_search", details={"query": query})
+        rows = _read_csv(export_timeline_to_csv([ev], tmp_path / "t.csv"))
+        assert rows[0]["query"] == "'" + query
+
+    def test_ordinary_cells_are_unchanged(self, tmp_path):
+        ev = _ev(details={"url": "https://example.com", "query": "a=b"})
+        rows = _read_csv(export_timeline_to_csv([ev], tmp_path / "t.csv"))
+        assert rows[0]["url"] == "https://example.com"
+        assert rows[0]["query"] == "a=b"
+        assert rows[0]["timestamp_utc"] == "2024-01-01T12:00:00+00:00"
+
+    def test_anomaly_cell_is_neutralised(self, tmp_path):
+        anomaly = Anomaly(event=_ev(summary="=cmd"), rule_id="SUSPICIOUS_KEYWORD",
+                          severity="medium", reason="r", matched_value="-x")
+        rows = _read_csv(export_anomalies_to_csv([anomaly], tmp_path / "a.csv"))
+        assert rows[0]["summary"] == "'=cmd"
+        assert rows[0]["matched_value"] == "'-x"

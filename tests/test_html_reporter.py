@@ -176,6 +176,14 @@ class TestBuildContext:
         assert ctx["source_files"]["/a/History"] == "aa" * 32
         assert ctx["source_files"]["/b/History"] == "bb" * 32
 
+    def test_wal_file_listed_in_source_files(self, tmp_path):
+        # plik -wal obok bazy też trafia do łańcucha dowodowego
+        db = tmp_path / "History"
+        db.write_bytes(b"main")
+        (tmp_path / "History-wal").write_bytes(b"wal")
+        ctx = _build_context([_ev(source_file=str(db))], [], case_id="X")
+        assert list(ctx["source_files"]) == [str(db), str(db) + "-wal"]
+
     def test_events_with_anomalies_mapping(self):
         # eventy splatane z anomaliami via id() — używam shared reference
         ev1 = _ev(event_type="chrome_visit")

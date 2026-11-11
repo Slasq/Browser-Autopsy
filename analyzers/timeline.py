@@ -12,7 +12,7 @@ from typing import Any
 
 from analyzers import wal
 from extractors import chrome, firefox
-from extractors.base import ArtifactError
+from extractors.base import ArtifactError, sha256_file
 
 @dataclass
 class TimelineEvent:
@@ -41,16 +41,36 @@ def _visit_to_event(entry, browser: str) -> TimelineEvent:
     )
 
 
+def _iso(dt: datetime | None) -> str | None:
+    """ISO-8601 text for `details`, so JSON and CSV carry one timestamp format."""
+    return dt.isoformat() if dt is not None else None
+
+
+# Stany, przy których plik dotarł w całości albo stan jest nieznany. Każdy inny
+# (CANCELLED, INTERRUPTED, FAILED...) trafia do summary, bo zmienia sens zdarzenia.
+_QUIET_DOWNLOAD_STATES = frozenset({None, "COMPLETE", "FINISHED", "UNKNOWN"})
+
+
 def _download_to_event(entry, browser: str) -> TimelineEvent:
     target = getattr(entry, "target_path", None)
+    state = getattr(entry, "state", None)
     return TimelineEvent(
         timestamp_utc=entry.timestamp,
         event_type=f"{browser}_download",
         browser=browser,
         source_file=entry.source_file,
         source_sha256=entry.sha256,
-        summary=f"Download: {entry.url}" + (f" -> {target}" if target else ""),
-        details={"url": entry.url, "target_path": str(target) if target else None},
+        summary=f"Download: {entry.url}" + (f" -> {target}" if target else "")
+                + ("" if state in _QUIET_DOWNLOAD_STATES else f" [{state}]"),
+        details={
+            "url": entry.url,
+            "target_path": str(target) if target else None,
+            "filename": getattr(entry, "filename", "") or "",
+            "state": state,
+            "file_size": getattr(entry, "file_size", None),
+            "end_time": _iso(getattr(entry, "end_timestamp", None)),
+            "danger_type": getattr(entry, "danger_type", None),
+        },
     )
 
 
@@ -81,6 +101,8 @@ def _cookie_to_event(entry, browser: str) -> TimelineEvent:
             "path": entry.path,
             "is_secure": entry.is_secure,
             "is_httponly": entry.is_httponly,
+            "last_access": _iso(entry.last_access),
+            "expires": _iso(entry.expires),
         },
     )
 
@@ -112,6 +134,7 @@ def _autofill_to_event(entry, browser: str) -> TimelineEvent:
             "field_name": entry.field_name,
             "value": entry.value,
             "times_used": entry.times_used,
+            "last_used": _iso(entry.last_used),
         },
     )
 
@@ -242,6 +265,26 @@ def build_timeline(
 
     events.sort(key=lambda ev: (ev.timestamp_utc is None, ev.timestamp_utc))
     return events
+
+
+def collect_source_files(events: list[TimelineEvent]) -> dict[str, str]:
+    """Unique source files of `events` as {path: sha256}, for chain of custody.
+
+    Insertion order is preserved, so the output is deterministic.
+
+    A SQLite '-wal' file next to a source database is listed too: open_db
+    replays it, so its content shapes the extracted records. Its hash is
+    calculated here, when the report is built, not before parsing.
+    """
+    files: dict[str, str] = {}
+    for e in events:
+        if e.source_file in files:
+            continue
+        files[e.source_file] = e.source_sha256
+        wal_file = Path(e.source_file + "-wal")
+        if wal_file.is_file():
+            files[str(wal_file)] = sha256_file(wal_file)
+    return files
 
 
 def filter_by_time(

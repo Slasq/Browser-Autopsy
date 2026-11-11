@@ -75,6 +75,15 @@ class TestCookieAdapter:
         assert ev.details["host"] == ".example.com"
         assert ev.details["is_secure"] is True
 
+    def test_access_and_expiry_times_reach_details(self):
+        cookie = _make_cookie()
+        cookie.expires = TS_JAN2
+        ev = _cookie_to_event(cookie, "chrome")
+        assert ev.details["last_access"] == "2024-01-01T00:00:00+00:00"
+        assert ev.details["expires"] == "2024-01-02T00:00:00+00:00"
+        # cookie sesyjne nie ma daty wygaśnięcia
+        assert _cookie_to_event(_make_cookie(), "chrome").details["expires"] is None
+
     def test_summary_contains_host_and_name(self):
         ev = _cookie_to_event(_make_cookie(host=".x.com", name="token"), "edge")
         assert ".x.com" in ev.summary
@@ -110,6 +119,7 @@ class TestAutofillAdapter:
         assert ev.event_type == "chrome_form"
         assert ev.details["field_name"] == "email"
         assert ev.details["times_used"] == 2
+        assert ev.details["last_used"] == "2024-01-01T00:00:00+00:00"
 
     def test_summary_contains_field_and_value(self):
         ev = _autofill_to_event(_make_autofill(), "chrome")

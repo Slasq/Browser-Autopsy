@@ -278,6 +278,21 @@ _SEARCH_ENGINES: list[tuple[str, str]] = [
     ("yandex.",        "text"),
 ]
 
+def _host_matches(host: str, fragment: str) -> bool:
+    """True when `host` belongs to the search engine, not to a lookalike domain."""
+    if fragment.endswith("."):
+        # "google." / "yandex." mają wiele końcówek krajowych (google.co.uk,
+        # yandex.com.tr). Po nazwie dopuszczamy 1-2 krótkie etykiety, więc
+        # cudza domena google.evil.example nie pasuje.
+        labels = host.split(".")
+        name = fragment[:-1]
+        if name not in labels:
+            return False
+        suffix = labels[labels.index(name) + 1:]
+        return 1 <= len(suffix) <= 2 and all(len(part) <= 3 for part in suffix)
+    return host == fragment or host.endswith("." + fragment)
+
+
 def _extract_query(url: str) -> tuple[str, str] | None:
     """
     Detect if a URL is a search and return (engine_name, query_string).
@@ -288,7 +303,11 @@ def _extract_query(url: str) -> tuple[str, str] | None:
         host = parsed.hostname or ""
         params = parse_qs(parsed.query)
         for fragment, param in _SEARCH_ENGINES:
-            if fragment in host:
+            if _host_matches(host, fragment):
+                # google.com/url?q=<adres> to przekierowanie po kliknięciu linku:
+                # q niesie adres docelowy, a nie zapytanie użytkownika
+                if fragment == "google." and parsed.path == "/url":
+                    return None
                 values = params.get(param)
                 if values and values[0].strip():
                     return (fragment.strip(".").strip("/"), values[0].strip())

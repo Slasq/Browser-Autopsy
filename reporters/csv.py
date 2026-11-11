@@ -46,6 +46,24 @@ _ANOMALY_FIELDS: list[str] = [
 # UTF-8 with BOM so Excel on Windows doesn't mangle Polish characters.
 _CSV_ENCODING = "utf-8-sig"
 
+# A cell that starts with one of these is run as a formula by Excel/LibreOffice.
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _safe_row(row: dict) -> dict:
+    """Neutralise spreadsheet formulas in a CSV row.
+
+    Cell text comes from the suspect's artifacts (search queries, page
+    titles), so a query like '=HYPERLINK(...)' must not execute when the
+    investigator opens the file. A leading apostrophe makes it plain text.
+    """
+    return {
+        key: "'" + value
+        if isinstance(value, str) and value.startswith(_FORMULA_PREFIXES)
+        else value
+        for key, value in row.items()
+    }
+
 
 # Individual exporters
 def export_timeline_to_csv(
@@ -60,7 +78,7 @@ def export_timeline_to_csv(
         writer.writeheader()
         for event in events:
             details = event.details or {}
-            writer.writerow({
+            writer.writerow(_safe_row({
                 "timestamp_utc": event.timestamp_utc.isoformat() if event.timestamp_utc is not None else "",
                 "event_type": event.event_type,
                 "browser": event.browser,
@@ -75,7 +93,7 @@ def export_timeline_to_csv(
                 "details_json": json.dumps(
                     details, ensure_ascii=False, default=str, sort_keys=True,
                 ),
-            })
+            }))
     return output_path
 
 
@@ -90,7 +108,7 @@ def export_anomalies_to_csv(
         writer = DictWriter(f, fieldnames=_ANOMALY_FIELDS)
         writer.writeheader()
         for a in anomalies:
-            writer.writerow({
+            writer.writerow(_safe_row({
                 "timestamp_utc": a.event.timestamp_utc.isoformat() if a.event.timestamp_utc is not None else "",
                 "rule_id": a.rule_id,
                 "severity": a.severity,
@@ -101,7 +119,7 @@ def export_anomalies_to_csv(
                 "source_file": a.event.source_file,
                 "source_sha256": a.event.source_sha256,
                 "summary": a.event.summary,
-            })
+            }))
     return output_path
 
 

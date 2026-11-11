@@ -73,7 +73,7 @@ The `*` stands for the browser label, for example `chrome_visit` or `tor_downloa
 Notes on the artifacts:
 
 1. History gives one event for each visit, not one for each URL.
-2. Downloads show the final URL of the redirect chain and the local target path.
+2. Downloads show the final URL of the redirect chain and the local target path. The summary marks a download that did not finish, for example `[CANCELLED]`. State, size and end time are in `details_json` and in `report.json`.
 3. Search queries come from visited URLs of nine engines: Google, Bing, DuckDuckGo, Yahoo, YouTube, Ecosia, Brave, Startpage and Yandex.
 4. Cookies give metadata only. The tool does not read cookie values.
 5. Only `History` (Chromium) or `places.sqlite` (Gecko) is mandatory. The tool skips other missing files with a warning.
@@ -116,11 +116,14 @@ The `--report` flag selects the files that land in `--output-dir`:
 | File            | Content                                                                              |
 |-----------------|--------------------------------------------------------------------------------------|
 | `report.html`   | Source files with SHA-256, summary, charts, anomaly table and full timeline          |
-| `timeline.csv`  | One row for each event, with flat `url` and `query` columns and a `details_json` column |
+| `timeline.csv`  | One row for each event, with flat `url`, `query` and `filename` columns and a `details_json` column |
 | `anomalies.csv` | One row for each anomaly, with the context of its event                              |
 | `report.json`   | Case metadata, source files, full timeline and anomalies in one document             |
 
 The CSV files use UTF-8 with BOM. Excel on Windows then reads non-ASCII text correctly.
+
+A cell that starts with `=`, `+`, `-` or `@` gets a leading apostrophe. A spreadsheet
+then shows the cell as text and does not run it as a formula.
 
 ## Install
 
@@ -300,7 +303,7 @@ cannot recover a record after SQLite merges the WAL and reuses the pages.
 ## Forensic soundness
 
 1. **Read-only access.** The tool copies each database to a temporary directory and opens the copy. It does not open the original for writing.
-2. **Chain of custody.** The tool calculates the SHA-256 of each source file before it reads the file. Every event carries the hash of its source.
+2. **Chain of custody.** The tool calculates the SHA-256 of each source file before it reads the file. Every event carries the hash of its source. The report also lists the `-wal` file of a database with its own hash.
 3. **Offline operation.** The tool makes no network calls.
 4. **UTC timestamps.** The tool converts every browser timestamp to UTC.
 5. **Escaped output.** The HTML report escapes all text from the artifacts.
@@ -308,7 +311,7 @@ cannot recover a record after SQLite merges the WAL and reuses the pages.
 ## Limitations
 
 1. The tool does not read cookie values. Chromium encrypts them with a key from the operating system.
-2. The SHA-256 covers the main database file. It does not cover the `-wal` file.
+2. The tool calculates the hash of a `-wal` file when it writes the report, after it reads the database.
 3. The WAL recovery finds only records that SQLite has not yet merged into the main file.
 4. The browser label from `--input` comes from the directory path. Use `--chrome-browser` or `--firefox-browser` with an explicit profile to set it.
 5. A domain entry without a wildcard does not match subdomains.

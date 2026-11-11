@@ -13,7 +13,7 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from analyzers.anomaly import Anomaly
-from analyzers.timeline import TimelineEvent
+from analyzers.timeline import TimelineEvent, collect_source_files
 
 
 _TEMPLATE_DIR: Path = Path(__file__).parent / "templates"
@@ -102,10 +102,7 @@ def _build_context(
 
     # Unique source files for chain of custody display.
     # dict preserves insertion order in 3.7+, so output is deterministic.
-    source_files: dict[str, str] = {}
-    for e in events:
-        if e.source_file not in source_files:
-            source_files[e.source_file] = e.source_sha256
+    source_files = collect_source_files(events)
 
     # Anomalies sorted for the dedicated table (severity desc, then time asc)
     anomalies_sorted = sorted(
