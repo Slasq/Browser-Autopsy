@@ -181,7 +181,8 @@ def detect_suspicious_extensions(
         # primary: bare filename; fallback: derive from target_path
         filename = event.details.get("filename", "")
         if not filename:
-            filename = basename(event.details.get("target_path", ""))
+            # target_path bywa None (pobranie bez ścieżki docelowej)
+            filename = basename(event.details.get("target_path") or "")
         if not filename or "." not in filename:
             continue
 

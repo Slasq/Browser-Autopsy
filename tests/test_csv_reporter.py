@@ -235,3 +235,20 @@ class TestNoneTimestamp:
         none_row = next(r for r in rows if r["timestamp_utc"] == "")
         assert "2024-03-15" in normal_row["timestamp_utc"]
         assert none_row["timestamp_utc"] == ""
+
+    def test_export_anomalies_none_timestamp_does_not_crash(self, tmp_path):
+        """Anomalia na evencie z timestamp=None (np. zakładka bez daty) trafia do CSV."""
+        ev = TimelineEvent(
+            timestamp_utc=None,
+            event_type="chrome_bookmark",
+            browser="chrome",
+            source_file="/fake/Bookmarks",
+            source_sha256="a" * 64,
+            summary="bookmark without timestamp",
+            details={"url": "https://bad.com"},
+        )
+        out = export_anomalies_to_csv([_anomaly(event=ev)], tmp_path / "a.csv")
+        rows = _read_csv(out)
+        assert len(rows) == 1
+        assert rows[0]["timestamp_utc"] == ""
+        assert rows[0]["rule_id"] == "SUSPICIOUS_DOMAIN"

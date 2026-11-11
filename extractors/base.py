@@ -2,7 +2,7 @@ import hashlib
 import shutil
 import sqlite3
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urlparse
@@ -39,33 +39,71 @@ class MalformedArtifactError(ArtifactError):
 # Chrome: mikrosek od 1601-01-01 → różnica do Unix epoch w mikrosekundach
 _CHROME_EPOCH_DELTA = 11_644_473_600_000_000
 
+_UNIX_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def _unix_us_to_utc(microseconds: int) -> datetime | None:
+    """Convert µs since Unix epoch to UTC datetime.
+
+    Returns None when the value falls outside datetime's range (years
+    1..9999), so one garbage timestamp cannot abort a whole extraction.
+    """
+    # timedelta zamiast datetime.fromtimestamp: fromtimestamp rzuca OSError na
+    # Windowsie dla dat sprzed 1970, a wynik ma być taki sam na każdym OS.
+    try:
+        return _UNIX_EPOCH + timedelta(microseconds=microseconds)
+    except OverflowError:
+        return None
+
+
 # Chrome modules
 def chrome_timestamp_to_utc(microseconds: int) -> datetime:
-    """Convert Chrome WebKit timestamp (µs since 1601-01-01) to UTC datetime."""
-    if microseconds == 0:
+    """Convert Chrome WebKit timestamp (µs since 1601-01-01) to UTC datetime.
+
+    Returns None for 0, NULL and out-of-range values.
+    """
+    if not microseconds:
         return None
-    unix_us = microseconds - _CHROME_EPOCH_DELTA
-    return datetime.fromtimestamp(unix_us / 1_000_000, tz=timezone.utc)
+    return _unix_us_to_utc(microseconds - _CHROME_EPOCH_DELTA)
 
 
 def firefox_timestamp_to_utc(microseconds: int) -> datetime:
-    """Convert Firefox timestamp (µs since Unix epoch) to UTC datetime."""
-    if microseconds == 0:
+    """Convert Firefox timestamp (µs since Unix epoch) to UTC datetime.
+
+    Returns None for 0, NULL and out-of-range values.
+    """
+    if not microseconds:
         return None
-    return datetime.fromtimestamp(microseconds / 1_000_000, tz=timezone.utc)
+    return _unix_us_to_utc(microseconds)
 
 
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
 def unix_seconds_to_utc(seconds: int) -> datetime:
     """Convert Unix timestamp in SECONDS to UTC datetime.
 
     Used by artifacts that don't follow their browser's usual unit:
     Chrome's autofill table and Firefox's cookie expiry both store seconds.
+<<<<<<< Updated upstream
     """
     if seconds == 0:
         return None
     return datetime.fromtimestamp(seconds, tz=timezone.utc)
 
 
+=======
+    Returns None for 0, NULL and out-of-range values.
+    """
+    if not seconds:
+        return None
+    return _unix_us_to_utc(seconds * 1_000_000)
+
+
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 def basename(path: str) -> str:
     """Cross-platform basename for stored path STRINGS — handles both '/' and '\\'.
 

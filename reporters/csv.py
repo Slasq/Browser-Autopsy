@@ -91,7 +91,7 @@ def export_anomalies_to_csv(
         writer.writeheader()
         for a in anomalies:
             writer.writerow({
-                "timestamp_utc": a.event.timestamp_utc.isoformat(),
+                "timestamp_utc": a.event.timestamp_utc.isoformat() if a.event.timestamp_utc is not None else "",
                 "rule_id": a.rule_id,
                 "severity": a.severity,
                 "matched_value": a.matched_value,

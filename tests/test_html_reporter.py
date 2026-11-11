@@ -381,6 +381,21 @@ class TestRenderReport:
         assert out.exists()
         assert out.stat().st_size > 0
 
+    def test_none_timestamp_anomaly_does_not_crash_render(self, tmp_path):
+        """Anomalia na evencie z timestamp=None nie crashuje rendera tabeli anomalii."""
+        ev_none = TimelineEvent(
+            timestamp_utc=None,
+            event_type="chrome_bookmark",
+            browser="chrome",
+            source_file="/fake/Bookmarks",
+            source_sha256="a" * 64,
+            summary="bookmark without timestamp",
+            details={"url": "https://bad.com"},
+        )
+        out = tmp_path / "report.html"
+        render_report([ev_none], [_anomaly(event=ev_none, reason="undated hit")], out, case_id="X")
+        assert "undated hit" in out.read_text(encoding="utf-8")
+
     def test_none_timestamp_anomaly_does_not_crash_build_context(self):
         """Anomalia z timestamp=None nie crashuje _build_context (sort po severity+time)."""
         ev_none = TimelineEvent(

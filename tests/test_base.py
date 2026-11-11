@@ -4,7 +4,13 @@ import pytest
 
 import pytest
 
-from extractors.base import _extract_query, basename, chrome_timestamp_to_utc, firefox_timestamp_to_utc
+from extractors.base import (
+    _extract_query,
+    basename,
+    chrome_timestamp_to_utc,
+    firefox_timestamp_to_utc,
+    unix_seconds_to_utc,
+)
 
 def test_chrome_known_value():
     # 2024-01-01 00:00:00 UTC w Chrome timestamp
@@ -19,6 +25,27 @@ def test_firefox_known_value():
 def test_zero_returns_none():
     assert chrome_timestamp_to_utc(0) is None
     assert firefox_timestamp_to_utc(0) is None
+
+def test_null_returns_none():
+    # NULL w bazie (np. moz_historyvisits.visit_date) przychodzi jako None
+    assert chrome_timestamp_to_utc(None) is None
+    assert firefox_timestamp_to_utc(None) is None
+    assert unix_seconds_to_utc(None) is None
+
+def test_out_of_range_returns_none():
+    # rok > 9999 nie mieści się w datetime i nie może wywrócić ekstrakcji
+    assert chrome_timestamp_to_utc(2**62) is None
+    assert firefox_timestamp_to_utc(2**62) is None
+    # milisekundy podane jako sekundy
+    assert unix_seconds_to_utc(1_704_067_200_000) is None
+
+def test_pre_1970_value_converts_on_every_os():
+    # datetime.fromtimestamp rzucał OSError na Windowsie dla dat sprzed 1970
+    result = chrome_timestamp_to_utc(1)
+    assert result == datetime(1601, 1, 1, 0, 0, 0, 1, tzinfo=timezone.utc)
+
+def test_unix_seconds_known_value():
+    assert unix_seconds_to_utc(1_704_067_200) == datetime(2024, 1, 1, tzinfo=timezone.utc)
 
 
 # basename must behave identically on every OS

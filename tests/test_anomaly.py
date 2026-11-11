@@ -227,6 +227,25 @@ class TestDetectSuspiciousExtensions:
         assert len(out) == 1
         assert out[0].matched_value == ".ps1"
 
+    def test_download_without_target_path_skipped(self, sample_iocs):
+        # anulowane pobranie: adapter timeline zapisuje target_path=None
+        from analyzers.timeline import _download_to_event
+        from extractors.base import DownloadEntry
+        entry = DownloadEntry(
+            timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            end_timestamp=None,
+            url="https://example.com/tool.exe",
+            target_path="",
+            filename="",
+            file_size=-1,
+            state="CANCELLED",
+            danger_type=0,
+            source_file="/fake/History",
+            sha256="0" * 64,
+        )
+        events = [_download_to_event(entry, "chrome")]
+        assert detect_suspicious_extensions(events, sample_iocs.suspicious_extensions) == []
+
 
 # detect_suspicious_keywords
 class TestDetectSuspiciousKeywords:
