@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import pytest
 
 from analyzers.anomaly import (
+    IOCConfigError,
     IOCs,
     _domain_from_url,
     _domain_matches,
@@ -98,6 +99,27 @@ class TestLoadIOCs:
         assert iocs.suspicious_domains == frozenset()
         assert iocs.suspicious_extensions == frozenset()
         assert "mimikatz" in iocs.suspicious_keywords
+
+    @pytest.mark.parametrize("content", [
+        # skalar zamiast listy: bez walidacji każda litera byłaby osobnym IOC
+        "suspicious_keywords: mimikatz\n",
+        # lista na najwyższym poziomie zamiast kategorii
+        "- pastebin.com\n",
+        # zepsuty YAML
+        "suspicious_domains: [a, b\n",
+    ])
+    def test_invalid_structure_raises(self, tmp_path, content):
+        f = tmp_path / "iocs.yaml"
+        f.write_text(content, encoding="utf-8")
+        with pytest.raises(IOCConfigError):
+            load_iocs(f)
+
+    def test_empty_list_entries_dropped(self, tmp_path):
+        # pusty element ("-" bez wartości) to None w YAML-u, nie słowo "none"
+        f = tmp_path / "iocs.yaml"
+        f.write_text('suspicious_keywords:\n  -\n  - ""\n  - mimikatz\n',
+                     encoding="utf-8")
+        assert load_iocs(f).suspicious_keywords == frozenset({"mimikatz"})
 
 
 # detect_suspicious_domains
@@ -395,6 +417,10 @@ class TestDomainFromUrl:
         ("https://EXAMPLE.COM/",            "example.com"),   # lowercased
         ("not-a-url",                       ""),              # bez schematu
         ("",                                ""),
+        ("https://x@pastebin.com/raw/a",    "pastebin.com"),  # login w URL
+        ("https://u:p@pastebin.com:8080/a", "pastebin.com"),  # login, hasło i port
+        ("https://pastebin.com./raw/a",     "pastebin.com"),  # końcowa kropka
+        ("http://[::1",                     ""),              # zepsuty URL nie rzuca
     ])
     def test_extracts_domain(self, url, expected_domain):
         assert _domain_from_url(url) == expected_domain

@@ -242,7 +242,7 @@ databases, so close it before you copy the files.
 | Code | Meaning                                                                                   |
 |------|-------------------------------------------------------------------------------------------|
 | `0`  | Success. This includes a run that skipped some profiles found by `--input`                |
-| `1`  | Runtime failure: unreadable profile given by flag, no readable profile, missing IOC file  |
+| `1`  | Runtime failure: unreadable profile given by flag, no readable profile, missing or invalid IOC file |
 | `2`  | Argument error: no profile, invalid date, `--start` later than `--end`                    |
 
 ## IOC configuration

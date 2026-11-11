@@ -480,6 +480,19 @@ class TestMainErrors:
         ])
         assert rc == 1
 
+    def test_invalid_ioc_file_returns_1(self, capsys, tmp_path, stub_pipeline):
+        # skalar zamiast listy: czytelny komunikat zamiast tracebacka
+        bad = tmp_path / "bad.yaml"
+        bad.write_text("suspicious_keywords: mimikatz\n", encoding="utf-8")
+        rc = main([
+            "--chrome-profile", "/fake/c",
+            "--ioc-file", str(bad),
+            "--output-dir", str(tmp_path / "out"),
+        ])
+        assert rc == 1
+        assert "must be a list" in capsys.readouterr().err
+        assert stub_pipeline["render_report"] == []
+
     def test_missing_artifact_returns_1(self, capsys, tmp_path, ioc_file, monkeypatch):
         # build_timeline propaguje FileNotFoundError z ekstraktorów
         def raise_fnf(**kwargs):

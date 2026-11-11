@@ -57,6 +57,23 @@ class Anomaly:
 
 
 # Config loading
+class IOCConfigError(ValueError):
+    """The IOC file exists but is unusable: broken YAML or wrong structure."""
+
+
+def _ioc_list(data: dict, key: str, path: Path) -> list:
+    """Return the entries under `key`, validated to be a YAML list."""
+    raw = data.get(key) or []
+    # skalar zamiast listy ("suspicious_keywords: mimikatz") iterowałby się
+    # po literach i każda litera stałaby się osobnym IOC
+    if not isinstance(raw, list):
+        raise IOCConfigError(
+            f"'{key}' in IOC file {path} must be a list, got {type(raw).__name__}"
+        )
+    # pusty element listy to None w YAML-u, a str(None) dałoby IOC "none"
+    return [entry for entry in raw if entry is not None and str(entry).strip()]
+
+
 def load_iocs(path: Path) -> IOCs:
     """Load IOCs from a YAML file.
 
@@ -64,17 +81,27 @@ def load_iocs(path: Path) -> IOCs:
       - everything lowercased (matching is case-insensitive)
       - extensions get a leading dot if missing in YAML ("exe" -> ".exe")
       - missing top-level keys / empty file => empty frozenset(s)
+      - empty list entries are dropped
 
     Raises FileNotFoundError when `path` does not exist.
+    Raises IOCConfigError when the YAML is broken or a category is not a list.
     """
     if not path.exists():
         raise FileNotFoundError(f"IOC config file not found: {path}")
 
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        raise IOCConfigError(f"Invalid YAML in IOC file {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise IOCConfigError(
+            f"IOC file {path} must map category names to lists, "
+            f"got {type(data).__name__}"
+        )
 
     # extensions: dopuszczamy "exe" i ".exe" w YAMLu — wewnątrz trzymamy z kropką
     extensions: list[str] = []
-    for ext in (data.get("suspicious_extensions") or []):
+    for ext in _ioc_list(data, "suspicious_extensions", path):
         ext = str(ext).lower().strip()
         if not ext.startswith("."):
             ext = "." + ext
@@ -82,23 +109,30 @@ def load_iocs(path: Path) -> IOCs:
 
     return IOCs(
         suspicious_domains=frozenset(
-            str(d).lower().strip() for d in (data.get("suspicious_domains") or [])
+            str(d).lower().strip() for d in _ioc_list(data, "suspicious_domains", path)
         ),
         suspicious_extensions=frozenset(extensions),
         suspicious_keywords=frozenset(
-            str(k).lower().strip() for k in (data.get("suspicious_keywords") or [])
+            str(k).lower().strip() for k in _ioc_list(data, "suspicious_keywords", path)
         ),
     )
 
 
 # Helpers
 def _domain_from_url(url: str) -> str:
-    """Extract lowercase domain from URL, stripped of 'www.' and port."""
-    domain = urlparse(url).netloc.lower()
+    """Extract lowercase domain from URL, stripped of 'www.', port and login.
+
+    Returns '' for a URL without a host and for a malformed URL.
+    """
+    try:
+        # hostname (nie netloc) odcina login, hasło i port:
+        # "user:pass@pastebin.com:8080" -> "pastebin.com"
+        domain = urlparse(url).hostname or ""
+    except ValueError:  # np. niedomknięty nawias adresu IPv6
+        return ""
+    domain = domain.rstrip(".")  # "pastebin.com." to ta sama domena
     if domain.startswith("www."):
         domain = domain[4:]
-    if ":" in domain:  # strip :8080 etc.
-        domain = domain.split(":", 1)[0]
     return domain
 
 

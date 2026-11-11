@@ -21,7 +21,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from analyzers.anomaly import detect, load_iocs
+from analyzers.anomaly import IOCConfigError, detect, load_iocs
 from analyzers.timeline import build_timeline, filter_by_time
 from extractors.base import ArtifactError
 from extractors.chrome import CHROMIUM_BROWSERS
@@ -283,7 +283,7 @@ def main(argv: list[str] | None = None) -> int:
     _log(f"[*] Loading IOCs from {args.ioc_file}...")
     try:
         iocs = load_iocs(args.ioc_file)
-    except FileNotFoundError as e:
+    except (FileNotFoundError, IOCConfigError) as e:
         _err(f"[!] {e}")
         return 1
     _log(
