@@ -1,6 +1,4 @@
 import json
-import os
-import platform
 import shutil
 from pathlib import Path
 
@@ -20,99 +18,11 @@ from extractors.base import (
     ExtensionEntry,
 )
 
-# Chromium family — profile path detection
+# Chromium family
 
 CHROMIUM_BROWSERS: tuple[str, ...] = (
     "chrome", "edge", "brave", "opera", "vivaldi", "chromium", "yandex",
 )
-
-
-def _env_dir(var: str, default: Path) -> Path:
-    # Path("") is truthy (== Path(".")), so a plain `or` fallback never fires —
-    # check the env var itself before building a Path from it.
-    value = os.environ.get(var)
-    return Path(value).expanduser() if value else default
-
-
-def _chromium_paths_windows() -> dict[str, Path]:
-    local = _env_dir("LOCALAPPDATA", Path.home() / "AppData" / "Local")
-    roaming = _env_dir("APPDATA", Path.home() / "AppData" / "Roaming")
-    return {
-        "chrome":   local / "Google" / "Chrome" / "User Data" / "Default",
-        "edge":     local / "Microsoft" / "Edge" / "User Data" / "Default",
-        "brave":    local / "BraveSoftware" / "Brave-Browser" / "User Data" / "Default",
-        "opera":    roaming / "Opera Software" / "Opera Stable",
-        "vivaldi":  local / "Vivaldi" / "User Data" / "Default",
-        "chromium": local / "Chromium" / "User Data" / "Default",
-        "yandex":   local / "Yandex" / "YandexBrowser" / "User Data" / "Default",
-    }
-
-
-def _chromium_paths_darwin() -> dict[str, Path]:
-    app_support = Path.home() / "Library" / "Application Support"
-    return {
-        "chrome":   app_support / "Google" / "Chrome" / "Default",
-        "edge":     app_support / "Microsoft Edge" / "Default",
-        "brave":    app_support / "BraveSoftware" / "Brave-Browser" / "Default",
-        "opera":    app_support / "com.operasoftware.Opera",
-        "vivaldi":  app_support / "Vivaldi" / "Default",
-        "chromium": app_support / "Chromium" / "Default",
-        "yandex":   app_support / "Yandex" / "YandexBrowser" / "Default",
-    }
-
-
-def _chromium_paths_linux() -> dict[str, Path]:
-    config = Path.home() / ".config"
-    return {
-        "chrome":   config / "google-chrome" / "Default",
-        "edge":     config / "microsoft-edge" / "Default",
-        "brave":    config / "BraveSoftware" / "Brave-Browser" / "Default",
-        "opera":    config / "opera",
-        "vivaldi":  config / "vivaldi" / "Default",
-        "chromium": config / "chromium" / "Default",
-        "yandex":   config / "yandex-browser" / "Default",
-    }
-
-
-_PLATFORM_RESOLVERS = {
-    "Windows": _chromium_paths_windows,
-    "Darwin":  _chromium_paths_darwin,
-    "Linux":   _chromium_paths_linux,
-}
-
-
-def get_default_profile_path(browser: str, system: str | None = None) -> Path | None:
-    """Return the default profile directory for a Chromium-family browser on the current OS.
-
-    Args:
-        browser: One of CHROMIUM_BROWSERS (case-insensitive).
-        system: Override platform.system() — useful in tests.
-
-    Returns:
-        Resolved Path, or None if browser or OS is unknown.
-    """
-    resolver = _PLATFORM_RESOLVERS.get(system or platform.system())
-    if resolver is None:
-        return None
-    return resolver().get(browser.lower())
-
-
-def detect_chromium_profiles(system: str | None = None) -> dict[str, Path]:
-    """Find Chromium-family browsers installed on this machine.
-
-    Checks each browser's default profile directory. Returns only those whose
-    profile directory actually exists on disk.
-
-    Args:
-        system: Override platform.system() — useful in tests.
-
-    Returns:
-        {browser_name: profile_path} for every browser found.
-    """
-    resolver = _PLATFORM_RESOLVERS.get(system or platform.system())
-    if resolver is None:
-        return {}
-    return {name: path for name, path in resolver().items() if path.exists()}
 
 
 # Chrome download states

@@ -258,10 +258,8 @@ def build_timeline(
         if wal_recover:
             recovered = wal.recover_history(profile, engine)
             events.extend(_recovered_to_event(e, browser) for e in recovered)
-            # Wizyta WAL_ONLY jest już w visits, więc jej wyszukiwanie też.
-            deleted = [e for e in recovered if e.recovery == "DELETED_PENDING"]
             events.extend(_search_to_event(e, browser, recovery="DELETED_PENDING")
-                          for e in searches_from_visits(deleted))
+                          for e in searches_from_visits(recovered))
 
     events.sort(key=lambda ev: (ev.timestamp_utc is None, ev.timestamp_utc))
     return events

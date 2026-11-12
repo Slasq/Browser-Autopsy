@@ -3,15 +3,15 @@ wal.py — recover history records hidden by SQLite Write-Ahead Log state.
 
 A browser DB in WAL mode is really two files: the main image (state as of the
 last checkpoint) and the -wal file (committed changes not yet merged back).
-Copied artifacts freeze that split, which lets us surface two things a plain
+Copied artifacts freeze that split, which lets us surface one thing a plain
 `SELECT` on the replayed database would hide:
 
   DELETED_PENDING  — row exists in the main image but the WAL deletes it.
                      The user deleted history AFTER the last checkpoint; the
                      record is still recoverable from the main image.
-  WAL_ONLY         — row exists only in the WAL (not yet checkpointed).
-                     Not hidden data per se, but proves the main image alone
-                     is incomplete — worth flagging in a report.
+
+A row that exists only in the WAL is not reported. The normal history read
+replays the WAL and already returns that row.
 
 This is a state diff of two valid database views — not a byte-level carver.
 Records whose pages were already checkpointed AND vacuumed are gone and stay
@@ -60,7 +60,7 @@ class RecoveredEntry:
     timestamp: datetime | None
     url: str
     title: str
-    recovery: str          # DELETED_PENDING | WAL_ONLY
+    recovery: str          # DELETED_PENDING
     source_file: str
     sha256: str
 
@@ -147,21 +147,8 @@ def recover_history(profile_path: Path, engine: str) -> list[RecoveredEntry]:
         )
         for (url, ts) in main_rows.keys() - replayed_rows.keys()
     ]
-    entries += [
-        RecoveredEntry(
-            timestamp=to_utc(ts or 0),
-            url=url,
-            title=replayed_rows[(url, ts)],
-            recovery="WAL_ONLY",
-            source_file=str(db_path),
-            sha256=checksum,
-        )
-        for (url, ts) in replayed_rows.keys() - main_rows.keys()
-    ]
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    deleted = sum(1 for e in entries if e.recovery == "DELETED_PENDING")
-    print(f"[*] Odzyskano {deleted} usuniętych i {len(entries) - deleted} "
-          f"niezcheckpointowanych rekordów z WAL")
+    print(f"[*] Odzyskano {len(entries)} usuniętych rekordów z WAL")
     return entries

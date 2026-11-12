@@ -215,6 +215,7 @@ Notes on the time filter:
 1. The tool reads a value without a time zone as UTC.
 2. Both limits are inclusive.
 3. The filter removes events that have no timestamp.
+4. A value with a date only means 00:00:00 of that day. To include the full last day, write `--end 2024-01-16T23:59:59`.
 
 ### Profile discovery
 
@@ -292,7 +293,9 @@ history twice, with the WAL and without it, and compares the two results:
 | Tag               | Meaning                                                                    |
 |-------------------|----------------------------------------------------------------------------|
 | `DELETED_PENDING` | The visit is in the main file, but the WAL deletes it. The user deleted it after the last checkpoint |
-| `WAL_ONLY`        | The visit is only in the WAL. The main file alone is incomplete            |
+
+A visit that is only in the WAL is a normal visit. The timeline lists it once,
+as a `*_visit` event.
 
 The tool identifies a visit by its URL and timestamp. A change of the page
 title alone gives no result.
@@ -365,7 +368,7 @@ real SQLite database with the schema of the browser and read it back.
 | Area       | Test modules                                                                 |
 |------------|------------------------------------------------------------------------------|
 | Extractors | `test_base`, `test_open_db`, `test_chrome_*`, `test_firefox_*`               |
-| Discovery  | `test_discovery`, `test_chromium_profiles`, `test_gecko_profiles`            |
+| Discovery  | `test_discovery`                                                             |
 | Analyzers  | `test_timeline`, `test_timeline_artifacts`, `test_anomaly`, `test_wal_recovery` |
 | Reporters  | `test_html_reporter`, `test_csv_reporter`, `test_json_reporter`              |
 | CLI        | `test_main`                                                                  |

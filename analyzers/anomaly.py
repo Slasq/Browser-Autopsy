@@ -149,7 +149,8 @@ def _domain_matches(domain: str, iocs: Iterable[str]) -> str | None:
       - "*.tld" -> suffix match (e.g. "*.onion" matches "abc.onion")
       - everything else -> exact equality (subdomains are NOT a match)
     """
-    for ioc in iocs:
+    # sorted: zbiór ma inną kolejność w każdym przebiegu, a raport ma być powtarzalny
+    for ioc in sorted(iocs):
         if ioc.startswith("*."):
             if domain.endswith(ioc[1:]):  # zostawiamy kropkę -> ".onion"
                 return ioc
@@ -274,7 +275,7 @@ def detect_suspicious_keywords(
         if not query:
             continue
         query_lower = query.lower()
-        for keyword in suspicious_keywords:
+        for keyword in sorted(suspicious_keywords):
             if keyword in query_lower:
                 anomalies.append(Anomaly(
                     event=event,

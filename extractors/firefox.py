@@ -1,6 +1,4 @@
 import json
-import os
-import platform
 import shutil
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -20,135 +18,11 @@ from extractors.base import (
     ExtensionEntry,
 )
 
-# Gecko family — profile path detection
-#
-# Unlike Chromium, Gecko does not keep a fixed "Default" profile directory:
-# profiles live under a per-browser root as randomly named folders
-# ("Profiles/ab12cd34.default-release"). Detection therefore means: find the
-# root, then scan it for directories that actually contain places.sqlite.
+# Gecko family
 
 GECKO_BROWSERS: tuple[str, ...] = (
     "firefox", "tor", "librewolf", "waterfox",
 )
-
-
-def _env_dir(var: str, default: Path) -> Path:
-    # Path("") is truthy (== Path(".")), so a plain `or` fallback never fires —
-    # check the env var itself before building a Path from it.
-    value = os.environ.get(var)
-    return Path(value).expanduser() if value else default
-
-
-def _gecko_roots_windows() -> dict[str, list[Path]]:
-    roaming = _env_dir("APPDATA", Path.home() / "AppData" / "Roaming")
-    home = Path.home()
-    return {
-        "firefox":   [roaming / "Mozilla" / "Firefox" / "Profiles"],
-        "librewolf": [roaming / "librewolf" / "Profiles"],
-        "waterfox":  [roaming / "Waterfox" / "Profiles"],
-        # Tor Browser is portable — the installer defaults to the Desktop.
-        "tor": [
-            home / "Desktop" / "Tor Browser" / "Browser" / "TorBrowser"
-                 / "Data" / "Browser",
-            home / "Tor Browser" / "Browser" / "TorBrowser" / "Data" / "Browser",
-        ],
-    }
-
-
-def _gecko_roots_darwin() -> dict[str, list[Path]]:
-    app_support = Path.home() / "Library" / "Application Support"
-    return {
-        "firefox":   [app_support / "Firefox" / "Profiles"],
-        "librewolf": [app_support / "LibreWolf" / "Profiles"],
-        "waterfox":  [app_support / "Waterfox" / "Profiles"],
-        "tor":       [app_support / "TorBrowser-Data" / "Browser"],
-    }
-
-
-def _gecko_roots_linux() -> dict[str, list[Path]]:
-    home = Path.home()
-    return {
-        "firefox":   [home / ".mozilla" / "firefox",
-                      home / "snap" / "firefox" / "common" / ".mozilla" / "firefox"],
-        "librewolf": [home / ".librewolf"],
-        "waterfox":  [home / ".waterfox"],
-        # Extracted tarball and torbrowser-launcher layouts.
-        "tor": [
-            home / "tor-browser" / "Browser" / "TorBrowser" / "Data" / "Browser",
-            home / ".local" / "share" / "torbrowser" / "tbb" / "x86_64"
-                 / "tor-browser" / "Browser" / "TorBrowser" / "Data" / "Browser",
-        ],
-    }
-
-
-_GECKO_PLATFORM_RESOLVERS = {
-    "Windows": _gecko_roots_windows,
-    "Darwin":  _gecko_roots_darwin,
-    "Linux":   _gecko_roots_linux,
-}
-
-
-def get_profile_roots(browser: str, system: str | None = None) -> list[Path]:
-    """Return candidate profile-root directories for a Gecko-family browser.
-
-    A "root" is where profile folders live (e.g. ~/.mozilla/firefox) — NOT the
-    profile itself. Use detect_gecko_profiles() to find actual profiles.
-
-    Args:
-        browser: One of GECKO_BROWSERS (case-insensitive).
-        system: Override platform.system() — useful in tests.
-
-    Returns:
-        List of candidate root Paths ([] if browser or OS is unknown).
-    """
-    resolver = _GECKO_PLATFORM_RESOLVERS.get(system or platform.system())
-    if resolver is None:
-        return []
-    return resolver().get(browser.lower(), [])
-
-
-def _profiles_under(root: Path) -> list[Path]:
-    """Directories in/under `root` that contain places.sqlite.
-
-    Checks the root itself (Tor's profile.default layout) and one level of
-    subdirectories (Profiles/xxxx.default-release layout).
-    """
-    if not root.is_dir():
-        return []
-    found = []
-    if (root / "places.sqlite").exists():
-        found.append(root)
-    for child in root.iterdir():
-        if child.is_dir() and (child / "places.sqlite").exists():
-            found.append(child)
-    return found
-
-
-def detect_gecko_profiles(system: str | None = None) -> dict[str, Path]:
-    """Find Gecko-family browser profiles present on this machine.
-
-    Scans each browser's candidate roots for directories containing
-    places.sqlite. When a browser has several profiles, the one with the most
-    recently modified places.sqlite wins (= the actively used profile).
-
-    Args:
-        system: Override platform.system() — useful in tests.
-
-    Returns:
-        {browser_name: profile_path} for every browser found.
-    """
-    resolver = _GECKO_PLATFORM_RESOLVERS.get(system or platform.system())
-    if resolver is None:
-        return {}
-
-    detected: dict[str, Path] = {}
-    for name, roots in resolver().items():
-        profiles = [p for root in roots for p in _profiles_under(root)]
-        if profiles:
-            detected[name] = max(
-                profiles, key=lambda p: (p / "places.sqlite").stat().st_mtime
-            )
-    return detected
 
 
 # Firefox History

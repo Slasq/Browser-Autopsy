@@ -291,6 +291,12 @@ class TestDetectSuspiciousKeywords:
         assert out[0].rule_id == "SUSPICIOUS_KEYWORD"
         assert out[0].matched_value == "mimikatz"
 
+    def test_matched_keyword_does_not_depend_on_ioc_order(self):
+        # dwa słowa pasują: raport zawsze podaje pierwsze alfabetycznie
+        events = [_ev("chrome_search", {"query": "mimikatz bypass uac"})]
+        out = detect_suspicious_keywords(events, ["mimikatz", "bypass uac"])
+        assert [a.matched_value for a in out] == ["bypass uac"]
+
     def test_case_insensitive(self, sample_iocs):
         events = [_ev("chrome_search", {"query": "MimiKatz tutorial"})]
         out = detect_suspicious_keywords(events, sample_iocs.suspicious_keywords)
@@ -465,6 +471,11 @@ class TestDomainMatches:
     def test_first_matching_ioc_returned(self):
         # gdy pasuje kilka IOC zwracamy pierwszą
         result = _domain_matches("abc.onion", ["*.onion", "abc.onion"])
+        assert result == "*.onion"
+
+    def test_match_does_not_depend_on_ioc_order(self):
+        # zbiór IOC nie ma stałej kolejności, więc wynik wyznacza sortowanie
+        result = _domain_matches("abc.onion", ["abc.onion", "*.onion"])
         assert result == "*.onion"
 
     def test_empty_ioc_list(self):

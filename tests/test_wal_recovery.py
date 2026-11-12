@@ -139,12 +139,10 @@ class TestRecoverHistoryChromium:
         assert e.recovery == "DELETED_PENDING"
         assert e.timestamp == datetime(2024, 1, 2, tzinfo=timezone.utc)
 
-    def test_uncheckpointed_record_flagged(self, tmp_path):
+    def test_uncheckpointed_record_not_reported(self, tmp_path):
+        # wizytę obecną tylko w WAL zwraca już zwykły odczyt historii
         profile = _build_profile_with_wal(tmp_path, "chromium", _insert_in_wal)
-        entries = recover_history(profile, "chromium")
-        assert len(entries) == 1
-        assert entries[0].url == "https://fresh.example.com"
-        assert entries[0].recovery == "WAL_ONLY"
+        assert recover_history(profile, "chromium") == []
 
     def test_title_change_is_not_a_deletion(self, tmp_path):
         # przeglądarka nadpisuje tytuł przy kolejnej wizycie (np. "(1) Inbox")
@@ -194,8 +192,8 @@ class TestRecoveredEventAdapter:
         assert ev.details["url"] == "https://deleted.example.com"
 
     def test_summary_carries_recovery_tag(self):
-        ev = _recovered_to_event(self._entry("WAL_ONLY"), "firefox")
-        assert "WAL_ONLY" in ev.summary
+        ev = _recovered_to_event(self._entry(), "firefox")
+        assert "DELETED_PENDING" in ev.summary
 
     def test_url_visible_to_domain_detector(self):
         # detektor domen czyta details["url"] — odzyskana wizyta na
@@ -222,20 +220,17 @@ class TestBuildTimelineWalRecover:
         assert recovered[0].details["url"] == "https://deleted.example.com"
 
     def test_deleted_search_reaches_keyword_rule(self, monkeypatch):
-        # usunięte wyszukiwanie daje zdarzenie search, a WAL_ONLY nie dubluje
-        def entry(query, recovery):
-            return RecoveredEntry(
-                timestamp=datetime(2024, 1, 2, tzinfo=timezone.utc),
-                url=f"https://www.google.com/search?q={query}", title="",
-                recovery=recovery, source_file="History", sha256="a" * 64,
-            )
+        # usunięte wyszukiwanie daje zdarzenie search
+        deleted = RecoveredEntry(
+            timestamp=datetime(2024, 1, 2, tzinfo=timezone.utc),
+            url="https://www.google.com/search?q=mimikatz+tutorial", title="",
+            recovery="DELETED_PENDING", source_file="History", sha256="a" * 64,
+        )
         for name in ("extract_history", "extract_downloads", "extract_cookies",
                      "extract_bookmarks", "extract_autofill", "extract_extensions"):
             monkeypatch.setattr(timeline.chrome, name, lambda p: [])
-        monkeypatch.setattr(timeline.wal, "recover_history", lambda p, engine: [
-            entry("mimikatz+tutorial", "DELETED_PENDING"),
-            entry("mimikatz+docs", "WAL_ONLY"),
-        ])
+        monkeypatch.setattr(timeline.wal, "recover_history",
+                            lambda p, engine: [deleted])
 
         events = build_timeline(chrome_profile=Path("/fake"), wal_recover=True)
         searches = [e for e in events if e.event_type == "chrome_search_recovered"]
@@ -243,6 +238,18 @@ class TestBuildTimelineWalRecover:
         assert searches[0].details["recovery"] == "DELETED_PENDING"
         hits = detect_suspicious_keywords(events, frozenset({"mimikatz"}))
         assert [a.event for a in hits] == searches
+
+    def test_wal_only_visit_is_listed_once(self, tmp_path, monkeypatch):
+        # dawniej taka wizyta trafiała do osi czasu dwa razy
+        profile = _build_profile_with_wal(tmp_path, "chromium", _insert_in_wal)
+        for name in ("extract_cookies", "extract_bookmarks",
+                     "extract_autofill", "extract_extensions"):
+            monkeypatch.setattr(timeline.chrome, name, lambda p: [])
+
+        events = build_timeline(chrome_profile=profile, wal_recover=True)
+        fresh = [e for e in events
+                 if e.details.get("url") == "https://fresh.example.com"]
+        assert [e.event_type for e in fresh] == ["chrome_visit"]
 
     def test_wal_recover_off_by_default(self, tmp_path, monkeypatch):
         profile = _build_profile_with_wal(tmp_path, "chromium", _delete_in_wal)
