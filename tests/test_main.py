@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 import main as cli_main
+from analyzers.timeline import TimelineEvent, filter_by_time
 from main import _parse_args, _parse_iso_datetime, main
 
 
@@ -65,12 +66,14 @@ def stub_pipeline(monkeypatch):
         calls["filter_by_time"].append(kwargs)
         return events
 
-    def fake_render_report(events, anomalies, output_path, case_id="UNSPECIFIED"):
+    def fake_render_report(events, anomalies, output_path, case_id="UNSPECIFIED",
+                           source_files=None):
         calls["render_report"].append({
             "events": events,
             "anomalies": anomalies,
             "output_path": output_path,
             "case_id": case_id,
+            "source_files": source_files,
         })
         return output_path
 
@@ -82,12 +85,14 @@ def stub_pipeline(monkeypatch):
         })
         return output_dir / "timeline.csv", output_dir / "anomalies.csv"
 
-    def fake_export_to_json(events, anomalies, output_path, case_id="UNSPECIFIED"):
+    def fake_export_to_json(events, anomalies, output_path, case_id="UNSPECIFIED",
+                            source_files=None):
         calls["export_to_json"].append({
             "events": events,
             "anomalies": anomalies,
             "output_path": output_path,
             "case_id": case_id,
+            "source_files": source_files,
         })
         return output_path
 
@@ -409,15 +414,21 @@ class TestMainInputDiscovery:
         assert rc == 1
         assert "no browser profiles" in capsys.readouterr().err.lower()
 
-    def test_broken_discovered_profile_is_skipped(self, tmp_path, ioc_file,
+    @pytest.mark.parametrize("exc", [
+        # pusty plik History
+        sqlite3.OperationalError("no such table: visits"),
+        # wartość złego typu w artefakcie
+        AttributeError("no such table: 'list' object has no attribute 'get'"),
+    ])
+    def test_broken_discovered_profile_is_skipped(self, exc, tmp_path, ioc_file,
                                                   stub_pipeline, monkeypatch, capsys):
-        # zepsuty profil Chromium (pusty plik History) nie zatrzymuje profilu Gecko
+        # zepsuty profil Chromium nie zatrzymuje profilu Gecko
         evidence = self._evidence_dir(tmp_path)
         analyzed = []
 
         def flaky_build_timeline(**kwargs):
             if "chrome_profile" in kwargs:
-                raise sqlite3.OperationalError("no such table: visits")
+                raise exc
             analyzed.append(kwargs)
             return []
         monkeypatch.setattr(cli_main, "build_timeline", flaky_build_timeline)
@@ -519,6 +530,8 @@ class TestMainErrors:
         sqlite3.OperationalError("no such table: visits"),
         # plik zablokowany przez działającą przeglądarkę
         PermissionError(13, "Permission denied"),
+        # wartość złego typu w artefakcie, np. tekst w kolumnie visit_time
+        TypeError("unsupported operand type(s) for -: 'str' and 'int'"),
     ])
     def test_unreadable_artifact_returns_1(self, exc, capsys, tmp_path, ioc_file,
                                            monkeypatch):
@@ -567,3 +580,22 @@ class TestTimeFilter:
         call = stub_pipeline["filter_by_time"][0]
         assert call["start"] == datetime(2024, 1, 15, tzinfo=timezone.utc)
         assert call["end"] == datetime(2024, 1, 20, tzinfo=timezone.utc)
+
+    def test_source_files_collected_before_filter(self, tmp_path, ioc_file,
+                                                  stub_pipeline, monkeypatch):
+        # plik bez zdarzeń w oknie czasu zostaje w chain of custody
+        event = TimelineEvent(
+            timestamp_utc=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            event_type="chrome_visit", browser="chrome",
+            source_file="/fake/chrome/History", source_sha256="a" * 64,
+            summary="Visit: https://example.com",
+        )
+        monkeypatch.setattr(cli_main, "build_timeline", lambda **kwargs: [event])
+        monkeypatch.setattr(cli_main, "filter_by_time", filter_by_time)
+
+        main(_base_argv(ioc_file, tmp_path / "out")
+             + ["--start", "2030-01-01", "--report", "all"])
+        for name in ("render_report", "export_to_json"):
+            call = stub_pipeline[name][0]
+            assert call["events"] == []
+            assert call["source_files"] == {"/fake/chrome/History": "a" * 64}

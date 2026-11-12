@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from extractors.chrome import SearchEntry, extract_searches
+from extractors.base import SearchEntry, searches_from_visits
+from extractors.chrome import extract_history
+
+
+def extract_searches(profile_path):
+    return searches_from_visits(extract_history(profile_path))
 
 # helpers
 

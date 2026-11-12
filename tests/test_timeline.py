@@ -22,6 +22,8 @@ TS_JAN3 = datetime(2024, 1, 3, tzinfo=timezone.utc)
 TS_JAN4 = datetime(2024, 1, 4, tzinfo=timezone.utc)
 
 SHA_FAKE = "a" * 64
+# wizyta z takim URL daje też zdarzenie *_search
+SEARCH_URL = "https://www.google.com/search?q=cats"
 
 
 def _make_visit(visit_time, url="https://example.com", title=None,
@@ -64,7 +66,6 @@ def empty_extractors(monkeypatch):
     for module in (timeline.chrome, timeline.firefox):
         monkeypatch.setattr(module, "extract_history", lambda p: [])
         monkeypatch.setattr(module, "extract_downloads", lambda p: [])
-        monkeypatch.setattr(module, "extract_searches", lambda p: [])
     return monkeypatch
 
 
@@ -203,11 +204,9 @@ class TestBuildTimelineErrors:
 class TestBuildTimelineChromeOnly:
     def test_returns_chrome_events_only(self, monkeypatch):
         monkeypatch.setattr(timeline.chrome, "extract_history",
-                            lambda p: [_make_visit(TS_JAN1)])
+                            lambda p: [_make_visit(TS_JAN1, url=SEARCH_URL)])
         monkeypatch.setattr(timeline.chrome, "extract_downloads",
                             lambda p: [_make_download(TS_JAN2)])
-        monkeypatch.setattr(timeline.chrome, "extract_searches",
-                            lambda p: [_make_search(TS_JAN3)])
         # firefox nie powinien być wołany, gdy profile=None
         monkeypatch.setattr(timeline.firefox, "extract_history",
                             lambda p: pytest.fail("firefox should not be called"))
@@ -225,7 +224,6 @@ class TestBuildTimelineChromeOnly:
         monkeypatch.setattr(timeline.chrome, "extract_history",
                             lambda p: [_make_visit(TS_JAN1)])
         monkeypatch.setattr(timeline.chrome, "extract_downloads", lambda p: [])
-        monkeypatch.setattr(timeline.chrome, "extract_searches", lambda p: [])
 
         events = build_timeline(chrome_profile=Path("/fake"), chrome_browser_name="edge")
         assert len(events) == 1
@@ -234,11 +232,9 @@ class TestBuildTimelineChromeOnly:
 
     def test_brave_browser_name_propagates_to_all_event_types(self, monkeypatch):
         monkeypatch.setattr(timeline.chrome, "extract_history",
-                            lambda p: [_make_visit(TS_JAN1)])
+                            lambda p: [_make_visit(TS_JAN1, url=SEARCH_URL)])
         monkeypatch.setattr(timeline.chrome, "extract_downloads",
                             lambda p: [_make_download(TS_JAN2)])
-        monkeypatch.setattr(timeline.chrome, "extract_searches",
-                            lambda p: [_make_search(TS_JAN3)])
 
         events = build_timeline(chrome_profile=Path("/fake"), chrome_browser_name="brave")
         types = {e.event_type for e in events}
@@ -251,7 +247,6 @@ class TestBuildTimelineFirefoxOnly:
         monkeypatch.setattr(timeline.firefox, "extract_history",
                             lambda p: [_make_visit(TS_JAN1)])
         monkeypatch.setattr(timeline.firefox, "extract_downloads", lambda p: [])
-        monkeypatch.setattr(timeline.firefox, "extract_searches", lambda p: [])
         monkeypatch.setattr(timeline.chrome, "extract_history",
                             lambda p: pytest.fail("chrome should not be called"))
 
@@ -261,11 +256,9 @@ class TestBuildTimelineFirefoxOnly:
 
     def test_firefox_browser_name_labels_events(self, monkeypatch):
         monkeypatch.setattr(timeline.firefox, "extract_history",
-                            lambda p: [_make_visit(TS_JAN1)])
+                            lambda p: [_make_visit(TS_JAN1, url=SEARCH_URL)])
         monkeypatch.setattr(timeline.firefox, "extract_downloads",
                             lambda p: [_make_download(TS_JAN2)])
-        monkeypatch.setattr(timeline.firefox, "extract_searches",
-                            lambda p: [_make_search(TS_JAN3)])
 
         events = build_timeline(firefox_profile=Path("/fake/tor"),
                                 firefox_browser_name="tor")
@@ -280,12 +273,10 @@ class TestBuildTimelineCombined:
         monkeypatch.setattr(timeline.chrome, "extract_history",
                             lambda p: [_make_visit(TS_JAN3, url="chrome-late")])
         monkeypatch.setattr(timeline.chrome, "extract_downloads", lambda p: [])
-        monkeypatch.setattr(timeline.chrome, "extract_searches", lambda p: [])
         monkeypatch.setattr(timeline.firefox, "extract_history",
                             lambda p: [_make_visit(TS_JAN1, url="firefox-early")])
         monkeypatch.setattr(timeline.firefox, "extract_downloads",
                             lambda p: [_make_download(TS_JAN2, url="firefox-mid")])
-        monkeypatch.setattr(timeline.firefox, "extract_searches", lambda p: [])
 
         events = build_timeline(
             chrome_profile=Path("/fake/chrome"),
@@ -299,11 +290,9 @@ class TestBuildTimelineCombined:
         monkeypatch.setattr(timeline.chrome, "extract_history",
                             lambda p: [_make_visit(TS_JAN1, url="https://dup.example")])
         monkeypatch.setattr(timeline.chrome, "extract_downloads", lambda p: [])
-        monkeypatch.setattr(timeline.chrome, "extract_searches", lambda p: [])
         monkeypatch.setattr(timeline.firefox, "extract_history",
                             lambda p: [_make_visit(TS_JAN1, url="https://dup.example")])
         monkeypatch.setattr(timeline.firefox, "extract_downloads", lambda p: [])
-        monkeypatch.setattr(timeline.firefox, "extract_searches", lambda p: [])
 
         events = build_timeline(
             chrome_profile=Path("/fake"),
@@ -317,7 +306,6 @@ class TestBuildTimelineCombined:
         monkeypatch.setattr(timeline.chrome, "extract_history",
                             lambda p: [_make_visit(TS_JAN1, sha256=custom_sha)])
         monkeypatch.setattr(timeline.chrome, "extract_downloads", lambda p: [])
-        monkeypatch.setattr(timeline.chrome, "extract_searches", lambda p: [])
 
         events = build_timeline(chrome_profile=Path("/fake"))
         assert events[0].source_sha256 == custom_sha
@@ -379,7 +367,6 @@ class TestBuildTimelineNoneTimestamps:
         monkeypatch.setattr(timeline.chrome, "extract_history",
                             lambda p: [none_visit, real_visit])
         monkeypatch.setattr(timeline.chrome, "extract_downloads", lambda p: [])
-        monkeypatch.setattr(timeline.chrome, "extract_searches", lambda p: [])
 
         events = build_timeline(chrome_profile=Path("/fake"))
         assert events[0].details["url"] == "https://has-time.example"
@@ -389,7 +376,6 @@ class TestBuildTimelineNoneTimestamps:
         visits = [_make_visit(None, url=f"https://no-time-{i}.example") for i in range(3)]
         monkeypatch.setattr(timeline.chrome, "extract_history", lambda p: visits)
         monkeypatch.setattr(timeline.chrome, "extract_downloads", lambda p: [])
-        monkeypatch.setattr(timeline.chrome, "extract_searches", lambda p: [])
 
         events = build_timeline(chrome_profile=Path("/fake"))
         assert len(events) == 3
@@ -398,11 +384,9 @@ class TestBuildTimelineNoneTimestamps:
         monkeypatch.setattr(timeline.chrome, "extract_history",
                             lambda p: [_make_visit(None, url="chrome-no-time")])
         monkeypatch.setattr(timeline.chrome, "extract_downloads", lambda p: [])
-        monkeypatch.setattr(timeline.chrome, "extract_searches", lambda p: [])
         monkeypatch.setattr(timeline.firefox, "extract_history",
                             lambda p: [_make_visit(TS_JAN1, url="firefox-has-time")])
         monkeypatch.setattr(timeline.firefox, "extract_downloads", lambda p: [])
-        monkeypatch.setattr(timeline.firefox, "extract_searches", lambda p: [])
 
         events = build_timeline(
             chrome_profile=Path("/fake/chrome"),

@@ -1,6 +1,8 @@
 """
 Tests for extractors/discovery.py — evidence-directory profile discovery.
 """
+import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -18,6 +20,17 @@ def _gecko_profile(directory: Path) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "places.sqlite").touch()
     return directory
+
+
+def _link_dir(target: Path, link: Path) -> None:
+    """Create a directory symlink, or a junction on Windows without the privilege."""
+    try:
+        os.symlink(target, link, target_is_directory=True)
+    except OSError:
+        if sys.platform != "win32":
+            pytest.skip("cannot create a directory link here")
+        import _winapi
+        _winapi.CreateJunction(str(target), str(link))
 
 
 class TestGuessLabel:
@@ -112,6 +125,19 @@ class TestDiscoverProfiles:
         result = discover_profiles(tmp_path)
         assert [p.path.name for p in result] == ["chrome"]
         assert "locked" in capsys.readouterr().out
+
+    def test_directory_links_are_not_followed(self, tmp_path, capsys):
+        # dowiązanie poza katalog dowodów i dowiązanie w pętlę do korzenia
+        evidence = tmp_path / "evidence"
+        profile = _chromium_profile(evidence / "user" / "chrome")
+        outside = _chromium_profile(tmp_path / "analyst" / "chrome")
+        _link_dir(outside.parent, evidence / "user" / "link_out")
+        _link_dir(evidence, evidence / "user" / "loop")
+
+        result = discover_profiles(evidence)
+        assert [p.path for p in result] == [profile]
+        out = capsys.readouterr().out
+        assert "link_out" in out and "loop" in out
 
     def test_deterministic_order(self, tmp_path):
         _chromium_profile(tmp_path / "b_chrome")

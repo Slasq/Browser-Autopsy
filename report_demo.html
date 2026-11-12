@@ -475,7 +475,7 @@ tr.has-anomaly td:first-child {
             <span class="label">Case</span>
             <span class="value">INC-2026-03-14</span>
         </div>
-        <div class="report-meta">Generated 2026-07-06T19:18:45+00:00 UTC</div>
+        <div class="report-meta">Generated 2026-11-12T12:17:30+00:00 UTC</div>
     </div>
 </header>
 
@@ -491,6 +491,10 @@ tr.has-anomaly td:first-child {
         <div class="file-row">
             <span class="path">samples\chrome\History</span>
             <span class="hash">SHA-256: 0f36af7b8419ecabf0c6c7cd692817ddaf148ec658c9c1c87cd48db9848edb5a</span>
+        </div>
+        <div class="file-row">
+            <span class="path">samples\chrome\History-wal</span>
+            <span class="hash">SHA-256: 4f645c667ddc6132cd7e5abf8e8f15e787708e2f75998425b6870feda109bb1b</span>
         </div>
         <div class="file-row">
             <span class="path">samples\chrome\Network\Cookies</span>
@@ -527,11 +531,11 @@ tr.has-anomaly td:first-child {
 
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="value">53</div>
+            <div class="value">54</div>
             <div class="label">Total Events</div>
         </div>
         <div class="stat-card">
-            <div class="value">10</div>
+            <div class="value">11</div>
             <div class="label">Anomalies</div>
         </div>
         <div class="stat-card sev-high">
@@ -539,7 +543,7 @@ tr.has-anomaly td:first-child {
             <div class="label">High Severity</div>
         </div>
         <div class="stat-card sev-med">
-            <div class="value">2</div>
+            <div class="value">3</div>
             <div class="label">Medium Severity</div>
         </div>
     </div>
@@ -597,6 +601,8 @@ tr.has-anomaly td:first-child {
                       style="left: 35.71%" title="2026-03-14 10:30 UTC — Form entry: search = &#34;mimikatz tutorial&#34;"></span>
                 <span class="viz-dot cat-visit"
                       style="left: 35.71%" title="2026-03-14 10:30 UTC — [DELETED_PENDING] Visit: https://www.google.com/search?q=mimikatz+tutorial+windows — mimikatz tutori"></span>
+                <span class="viz-dot cat-search viz-anomaly"
+                      style="left: 35.71%" title="2026-03-14 10:30 UTC — [DELETED_PENDING] Search: &#34;mimikatz tutorial windows&#34; [google]"></span>
                 <span class="viz-dot cat-visit"
                       style="left: 44.05%" title="2026-03-14 11:05 UTC — Visit: https://www.bing.com/search?q=credential+dumping+lsass — credential dumping lsass - Bing"></span>
                 <span class="viz-dot cat-search"
@@ -720,8 +726,8 @@ tr.has-anomaly td:first-child {
             <div class="hour-bar" style="height: 47.4%"></div>
             <span class="hour-label">9</span>
         </div>
-        <div class="hour-col" title="10:00 — 4 events">
-            <div class="hour-bar" style="height: 21.1%"></div>
+        <div class="hour-col" title="10:00 — 5 events">
+            <div class="hour-bar" style="height: 26.3%"></div>
             <span class="hour-label">10</span>
         </div>
         <div class="hour-col" title="11:00 — 11 events">
@@ -855,6 +861,11 @@ tr.has-anomaly td:first-child {
             <progress class="bar" value="1" max="11"></progress>
             <span class="bar-count">1</span>
         </li>
+        <li>
+            <span class="bar-label">chrome_search_recovered</span>
+            <progress class="bar" value="1" max="11"></progress>
+            <span class="bar-count">1</span>
+        </li>
     </ul>
 
     <h3>Anomalies by Rule</h3>
@@ -863,6 +874,11 @@ tr.has-anomaly td:first-child {
             <span class="bar-label">SUSPICIOUS_DOMAIN</span>
             <progress class="bar" value="6" max="6"></progress>
             <span class="bar-count">6</span>
+        </li>
+        <li>
+            <span class="bar-label">SUSPICIOUS_KEYWORD</span>
+            <progress class="bar" value="2" max="6"></progress>
+            <span class="bar-count">2</span>
         </li>
         <li>
             <span class="bar-label">DOUBLE_EXTENSION</span>
@@ -874,15 +890,10 @@ tr.has-anomaly td:first-child {
             <progress class="bar" value="1" max="6"></progress>
             <span class="bar-count">1</span>
         </li>
-        <li>
-            <span class="bar-label">SUSPICIOUS_KEYWORD</span>
-            <progress class="bar" value="1" max="6"></progress>
-            <span class="bar-count">1</span>
-        </li>
     </ul>
 
     <!-- Detected Anomalies -->
-    <h2>III. Detected Anomalies (10)</h2>
+    <h2>III. Detected Anomalies (11)</h2>
     <table>
         <thead>
             <tr>
@@ -968,6 +979,14 @@ tr.has-anomaly td:first-child {
                 <td>chrome</td>
             </tr>
             <tr>
+                <td><span class="mono">2026-03-14T10:30:00+00:00</span></td>
+                <td><span class="badge badge-medium">medium</span></td>
+                <td><code>SUSPICIOUS_KEYWORD</code></td>
+                <td>Search query contains suspicious keyword &#39;mimikatz&#39;</td>
+                <td><code>mimikatz</code></td>
+                <td>chrome</td>
+            </tr>
+            <tr>
                 <td><span class="mono">2026-03-14T11:10:00+00:00</span></td>
                 <td><span class="badge badge-medium">medium</span></td>
                 <td><code>SUSPICIOUS_KEYWORD</code></td>
@@ -979,7 +998,7 @@ tr.has-anomaly td:first-child {
     </table>
 
     <!-- Timeline  -->
-    <h2>IV. Timeline (53)</h2>
+    <h2>IV. Timeline (54)</h2>
     <table>
         <thead>
             <tr>
@@ -1260,6 +1279,17 @@ tr.has-anomaly td:first-child {
                 <td>
                 </td>
             </tr>
+            <tr class="has-anomaly">
+                <td><span class="mono">2026-03-14T10:30:00+00:00</span></td>
+                <td>chrome</td>
+                <td><code>chrome_search_recovered</code></td>
+                <td>[DELETED_PENDING] Search: &#34;mimikatz tutorial windows&#34; [google]</td>
+                <td>
+                    <span class="flag-stack">
+                        <span class="badge badge-medium" title="Search query contains suspicious keyword &#39;mimikatz&#39;">SUSPICIOUS_KEYWORD</span>
+                    </span>
+                </td>
+            </tr>
             <tr >
                 <td><span class="mono">2026-03-14T11:05:00+00:00</span></td>
                 <td>chrome</td>
@@ -1445,7 +1475,7 @@ tr.has-anomaly td:first-child {
     </table>
 
     <footer class="report-footer">
-        End of Report &nbsp;·&nbsp; Browser-Autopsy &nbsp;·&nbsp; 2026-07-06T19:18:45+00:00
+        End of Report &nbsp;·&nbsp; Browser-Autopsy &nbsp;·&nbsp; 2026-11-12T12:17:30+00:00
     </footer>
 
 </div>

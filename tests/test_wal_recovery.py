@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from analyzers import timeline
+from analyzers.anomaly import detect_suspicious_keywords
 from analyzers.timeline import build_timeline, _recovered_to_event
 from analyzers.wal import RecoveredEntry, recover_history
 
@@ -219,6 +220,29 @@ class TestBuildTimelineWalRecover:
         recovered = [e for e in events if e.event_type.endswith("_recovered")]
         assert len(recovered) == 1
         assert recovered[0].details["url"] == "https://deleted.example.com"
+
+    def test_deleted_search_reaches_keyword_rule(self, monkeypatch):
+        # usunięte wyszukiwanie daje zdarzenie search, a WAL_ONLY nie dubluje
+        def entry(query, recovery):
+            return RecoveredEntry(
+                timestamp=datetime(2024, 1, 2, tzinfo=timezone.utc),
+                url=f"https://www.google.com/search?q={query}", title="",
+                recovery=recovery, source_file="History", sha256="a" * 64,
+            )
+        for name in ("extract_history", "extract_downloads", "extract_cookies",
+                     "extract_bookmarks", "extract_autofill", "extract_extensions"):
+            monkeypatch.setattr(timeline.chrome, name, lambda p: [])
+        monkeypatch.setattr(timeline.wal, "recover_history", lambda p, engine: [
+            entry("mimikatz+tutorial", "DELETED_PENDING"),
+            entry("mimikatz+docs", "WAL_ONLY"),
+        ])
+
+        events = build_timeline(chrome_profile=Path("/fake"), wal_recover=True)
+        searches = [e for e in events if e.event_type == "chrome_search_recovered"]
+        assert [e.details["query"] for e in searches] == ["mimikatz tutorial"]
+        assert searches[0].details["recovery"] == "DELETED_PENDING"
+        hits = detect_suspicious_keywords(events, frozenset({"mimikatz"}))
+        assert [a.event for a in hits] == searches
 
     def test_wal_recover_off_by_default(self, tmp_path, monkeypatch):
         profile = _build_profile_with_wal(tmp_path, "chromium", _delete_in_wal)

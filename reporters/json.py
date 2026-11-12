@@ -47,6 +47,7 @@ def export_to_json(
     anomalies: list[Anomaly],
     output_path: Path,
     case_id: str = "UNSPECIFIED",
+    source_files: dict[str, str] | None = None,
 ) -> Path:
     """Write the complete analysis to `output_path` as one JSON document.
 
@@ -55,12 +56,15 @@ def export_to_json(
         anomalies: list of Anomaly from analyzers.anomaly.detect()
         output_path: where to write the .json file (parent dirs auto-created)
         case_id: case identifier included in the document metadata
+        source_files: {path: sha256} for chain of custody (default: the
+            source files of `events`)
 
     Returns:
         The output_path, for convenient chaining.
     """
     # Unique source files for chain of custody (insertion order preserved).
-    source_files = collect_source_files(events)
+    if source_files is None:
+        source_files = collect_source_files(events)
 
     document = {
         "tool": "browser-autopsy",

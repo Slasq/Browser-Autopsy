@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from extractors.firefox import extract_searches
+from extractors.base import searches_from_visits
+from extractors.firefox import extract_history
+
+
+def extract_searches(profile_path):
+    return searches_from_visits(extract_history(profile_path))
 
 _TS_2024 = 1_704_067_200_000_000   # 2024-01-01 00:00:00 UTC
 _TS_JAN2 = 1_704_153_600_000_000   # 2024-01-02 00:00:00 UTC

@@ -314,3 +314,28 @@ def _extract_query(url: str) -> tuple[str, str] | None:
     except Exception:
         pass
     return None
+
+
+def searches_from_visits(visits) -> list[SearchEntry]:
+    """Return one SearchEntry for each visit whose URL is a search query.
+
+    Each visit needs timestamp, url, source_file and sha256. The result
+    keeps the order of `visits`.
+    """
+    entries: list[SearchEntry] = []
+    for visit in visits:
+        result = _extract_query(visit.url)
+        if result is None:
+            continue
+        engine, query = result
+        entries.append(
+            SearchEntry(
+                timestamp=visit.timestamp,
+                engine=engine,
+                query=query,
+                url=visit.url,
+                source_file=visit.source_file,
+                sha256=visit.sha256,
+            )
+        )
+    return entries

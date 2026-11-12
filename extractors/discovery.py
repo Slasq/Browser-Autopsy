@@ -16,6 +16,7 @@ identical within an engine family.
 """
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -64,7 +65,8 @@ def discover_profiles(input_dir: Path) -> list[DiscoveredProfile]:
     The input directory itself may be a profile, or contain any number of
     profile folders at any depth. Once a directory is identified as a
     profile, its subdirectories are not descended into (a profile never
-    nests another profile).
+    nests another profile). Directory links (symlinks, junctions) are
+    skipped with a warning.
 
     Args:
         input_dir: Evidence directory to scan.
@@ -98,9 +100,15 @@ def discover_profiles(input_dir: Path) -> list[DiscoveredProfile]:
                 path=directory,
             ))
             return  # profile found — don't descend further
+        real = Path(os.path.realpath(directory))
         for child in children:
-            if child.is_dir():
-                _scan(child)
+            if not child.is_dir():
+                continue
+            # a link can lead outside the evidence directory or into a loop
+            if Path(os.path.realpath(child)) != real / child.name:
+                print(f"[!] Skipped link: {child}")
+                continue
+            _scan(child)
 
     _scan(input_dir)
     found.sort(key=lambda p: str(p.path))

@@ -171,7 +171,7 @@ recoverable from the WAL.
 
 2. Open `output/demo/report.html`.
 
-The run gives 53 events and 10 anomalies. To build the sample artifacts again,
+The run gives 54 events and 11 anomalies. To build the sample artifacts again,
 run `python samples/generate.py`.
 
 ## Usage
@@ -276,7 +276,7 @@ Matching rules:
 
 1. All matching ignores letter case.
 2. A domain entry matches the exact domain. An entry that starts with `*.` matches every domain with that suffix.
-3. The tool removes a leading `www.` from the URL before it compares domains.
+3. The tool removes a leading `www.` and a trailing dot from the URL and from the IOC entry before it compares domains.
 4. The leading dot of an extension is optional: `exe` and `.exe` are equal.
 5. A keyword matches when the search query contains it.
 
@@ -297,6 +297,9 @@ history twice, with the WAL and without it, and compares the two results:
 The tool identifies a visit by its URL and timestamp. A change of the page
 title alone gives no result.
 
+A deleted visit to a search URL also gives a `*_search_recovered` event. The
+keyword rule checks this event.
+
 This method compares two valid database states. It does not carve pages. It
 cannot recover a record after SQLite merges the WAL and reuses the pages.
 
@@ -316,6 +319,8 @@ cannot recover a record after SQLite merges the WAL and reuses the pages.
 4. The browser label from `--input` comes from the directory path. Use `--chrome-browser` or `--firefox-browser` with an explicit profile to set it.
 5. A domain entry without a wildcard does not match subdomains.
 6. The report does not list the profiles that the tool skipped. Read stderr for that.
+7. The report lists a source file only when the file gives at least one event. A time filter does not remove a file from the list.
+8. With `--input`, the tool does not follow directory links. It prints a warning for each link.
 
 ## Project structure
 

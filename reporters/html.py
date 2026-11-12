@@ -89,6 +89,7 @@ def _build_context(
     events: list[TimelineEvent],
     anomalies: list[Anomaly],
     case_id: str,
+    source_files: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Compose the Jinja2 render context from raw events + anomalies."""
 
@@ -102,7 +103,8 @@ def _build_context(
 
     # Unique source files for chain of custody display.
     # dict preserves insertion order in 3.7+, so output is deterministic.
-    source_files = collect_source_files(events)
+    if source_files is None:
+        source_files = collect_source_files(events)
 
     # Anomalies sorted for the dedicated table (severity desc, then time asc)
     anomalies_sorted = sorted(
@@ -144,6 +146,7 @@ def render_report(
     anomalies: list[Anomaly],
     output_path: Path,
     case_id: str = "UNSPECIFIED",
+    source_files: dict[str, str] | None = None,
 ) -> Path:
     """Render a complete HTML report to `output_path`.
 
@@ -152,6 +155,8 @@ def render_report(
         anomalies: list of Anomaly from analyzers.anomaly.detect()
         output_path: where to write the .html file (parent dirs auto-created)
         case_id: case identifier shown in the report header (default UNSPECIFIED)
+        source_files: {path: sha256} for chain of custody (default: the
+            source files of `events`)
 
     Returns:
         The output_path, for convenient chaining.
@@ -167,7 +172,7 @@ def render_report(
         lstrip_blocks=True,
     )
     template = env.get_template(_TEMPLATE_NAME)
-    context = _build_context(events, anomalies, case_id)
+    context = _build_context(events, anomalies, case_id, source_files)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(template.render(**context), encoding="utf-8")

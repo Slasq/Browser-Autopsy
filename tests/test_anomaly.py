@@ -83,6 +83,18 @@ class TestLoadIOCs:
         assert ".exe" in iocs.suspicious_extensions
         assert "mimikatz" in iocs.suspicious_keywords
 
+    def test_domains_normalised_like_urls(self, tmp_path):
+        # wpis z "www." i z końcową kropką musi pasować do odwiedzonego adresu URL
+        f = tmp_path / "iocs.yaml"
+        f.write_text(
+            'suspicious_domains:\n  - www.Evil.com\n  - other.org.\n  - "*.onion"\n',
+            encoding="utf-8",
+        )
+        iocs = load_iocs(f)
+        assert iocs.suspicious_domains == {"evil.com", "other.org", "*.onion"}
+        domain = _domain_from_url("https://www.evil.com/x")
+        assert _domain_matches(domain, iocs.suspicious_domains) == "evil.com"
+
     def test_empty_yaml(self, tmp_path):
         f = tmp_path / "iocs.yaml"
         f.write_text("", encoding="utf-8")

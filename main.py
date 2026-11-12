@@ -16,13 +16,12 @@ Exit codes follow common DFIR-tool conventions:
 from __future__ import annotations
 
 import argparse
-import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 from analyzers.anomaly import IOCConfigError, detect, load_iocs
-from analyzers.timeline import build_timeline, filter_by_time
+from analyzers.timeline import build_timeline, collect_source_files, filter_by_time
 from extractors.base import ArtifactError
 from extractors.chrome import CHROMIUM_BROWSERS
 from extractors.discovery import discover_profiles
@@ -246,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
                         firefox_browser_name=prof.browser,
                         wal_recover=args.wal_recover,
                     ))
-            except (ArtifactError, sqlite3.Error, OSError) as e:
+            except Exception as e:
                 _err(f"[!] Skipped profile {prof.path}: {e}")
                 skipped += 1
         if discovered and skipped == len(discovered) \
@@ -264,11 +263,14 @@ def main(argv: list[str] | None = None) -> int:
         # defensywnie nietypowane FileNotFoundError spoza warstwy artefaktów
         _err(f"[!] Artifact not found: {e}")
         return 1
-    except (sqlite3.Error, OSError) as e:
-        # baza o innym schemacie (np. pusty plik History) albo plik zablokowany przez przeglądarkę
+    except Exception as e:
+        # baza o innym schemacie, plik zablokowany przez przeglądarkę albo wartość złego typu
         _err(f"[!] Cannot read artifact: {e}")
         return 1
     _log(f"[+] Timeline: {len(events)} events")
+
+    # Lista źródeł powstaje przed filtrem czasu. Plik bez zdarzeń w oknie też został odczytany.
+    source_files = collect_source_files(events)
 
     # 2 Optional time-window filter
     if args.start is not None or args.end is not None:
@@ -302,7 +304,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.report in ("html", "both", "all"):
         html_path = args.output_dir / "report.html"
-        render_report(events, anomalies, html_path, case_id=args.case_id)
+        render_report(events, anomalies, html_path, case_id=args.case_id,
+                      source_files=source_files)
         _log(f"[+] HTML report:   {html_path}")
 
     if args.report in ("csv", "both", "all"):
@@ -315,7 +318,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.report in ("json", "all"):
         json_path = export_to_json(
             events, anomalies, args.output_dir / "report.json",
-            case_id=args.case_id,
+            case_id=args.case_id, source_files=source_files,
         )
         _log(f"[+] JSON report:   {json_path}")
 

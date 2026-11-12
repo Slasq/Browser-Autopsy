@@ -14,12 +14,10 @@ from extractors.base import (
     MalformedArtifactError,
     VisitEntry,
     DownloadEntry,
-    SearchEntry,
     CookieEntry,
     BookmarkEntry,
     AutofillEntry,
     ExtensionEntry,
-    _extract_query,
 )
 
 # Chromium family — profile path detection
@@ -257,64 +255,6 @@ def extract_downloads(profile_path: Path) -> list[DownloadEntry]:
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
     print(f"[*] Znaleziono {len(entries)} pobranych plików")
-    return entries
-
-
-def extract_searches(profile_path: Path) -> list[SearchEntry]:
-    """
-    Extract search queries from Chrome browsing history by parsing URLs.
-
-    Scans all visited URLs from the visits+urls tables and tries to detect
-    known search engine patterns (Google, Bing, DuckDuckGo, Yahoo, YouTube,
-    Ecosia, Brave, Startpage, Yandex). Each visit that matches produces a
-    separate SearchEntry — repeated searches appear multiple times.
-
-    Args:
-        profile_path: Path to Chrome profile directory (contains 'History' file).
-
-    Returns:
-        List of SearchEntry, sorted by timestamp ascending (None-timestamp last).
-
-    Raises:
-        FileNotFoundError: If 'History' file does not exist in profile_path.
-    """
-    db_path = profile_path / "History"
-    checksum = sha256_file(db_path)
-    print(f"[*] Plik: History\t SHA256: {checksum}")
-
-    conn, tmp_dir = open_db(db_path)
-    entries: list[SearchEntry] = []
-
-    try:
-        cursor = conn.execute(
-            """
-            SELECT u.url, v.visit_time
-            FROM visits v
-            JOIN urls u ON v.url = u.id
-            """
-        )
-        for row in cursor:
-            result = _extract_query(row["url"])
-            if result is None:
-                continue
-            engine, query = result
-            entries.append(
-                SearchEntry(
-                    timestamp=chrome_timestamp_to_utc(row["visit_time"]),
-                    engine=engine,
-                    query=query,
-                    url=row["url"],
-                    source_file=str(db_path),
-                    sha256=checksum,
-                )
-            )
-    finally:
-        conn.close()
-        shutil.rmtree(tmp_dir)
-
-    entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
-
-    print(f"[*] Znaleziono {len(entries)} wyszukiwań")
     return entries
 
 

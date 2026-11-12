@@ -79,6 +79,7 @@ def load_iocs(path: Path) -> IOCs:
 
     Normalisation:
       - everything lowercased (matching is case-insensitive)
+      - domains lose a leading "www." and a trailing dot, like visited URLs
       - extensions get a leading dot if missing in YAML ("exe" -> ".exe")
       - missing top-level keys / empty file => empty frozenset(s)
       - empty list entries are dropped
@@ -108,8 +109,10 @@ def load_iocs(path: Path) -> IOCs:
         extensions.append(ext)
 
     return IOCs(
+        # ta sama normalizacja co dla adresów URL, inaczej wpis "www.x.com" nigdy nie pasuje
         suspicious_domains=frozenset(
-            str(d).lower().strip() for d in _ioc_list(data, "suspicious_domains", path)
+            _bare_domain(str(d).lower().strip())
+            for d in _ioc_list(data, "suspicious_domains", path)
         ),
         suspicious_extensions=frozenset(extensions),
         suspicious_keywords=frozenset(
@@ -130,10 +133,13 @@ def _domain_from_url(url: str) -> str:
         domain = urlparse(url).hostname or ""
     except ValueError:  # np. niedomknięty nawias adresu IPv6
         return ""
-    domain = domain.rstrip(".")  # "pastebin.com." to ta sama domena
-    if domain.startswith("www."):
-        domain = domain[4:]
-    return domain
+    return _bare_domain(domain)
+
+
+def _bare_domain(domain: str) -> str:
+    """Drop the trailing dot and the leading 'www.' of a domain."""
+    # "pastebin.com." to ta sama domena
+    return domain.rstrip(".").removeprefix("www.")
 
 
 def _domain_matches(domain: str, iocs: Iterable[str]) -> str | None:

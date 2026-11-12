@@ -60,7 +60,6 @@ def core_extractors_stubbed(monkeypatch):
     for module in (timeline.chrome, timeline.firefox):
         monkeypatch.setattr(module, "extract_history", lambda p: [])
         monkeypatch.setattr(module, "extract_downloads", lambda p: [])
-        monkeypatch.setattr(module, "extract_searches", lambda p: [])
     return monkeypatch
 
 
@@ -173,6 +172,19 @@ class TestOptionalArtifacts:
         # ciasteczka pominięte, zakładki z tego samego profilu zostają
         assert [e.event_type for e in events] == ["chrome_bookmark"]
         assert "Pominięto extract_cookies" in capsys.readouterr().out
+
+    def test_optional_artifact_with_bad_value_skipped(self, core_extractors_stubbed,
+                                                      monkeypatch, capsys):
+        # np. "children": null w pliku Bookmarks
+        def boom(p):
+            raise TypeError("'NoneType' object is not iterable")
+        monkeypatch.setattr(timeline.chrome, "extract_bookmarks", boom)
+        monkeypatch.setattr(timeline.chrome, "extract_cookies",
+                            lambda p: [_make_cookie()])
+
+        events = build_timeline(chrome_profile=Path("/fake"))
+        assert [e.event_type for e in events] == ["chrome_cookie"]
+        assert "Pominięto extract_bookmarks" in capsys.readouterr().out
 
     def test_cookie_events_included(self, core_extractors_stubbed, monkeypatch):
         monkeypatch.setattr(timeline.chrome, "extract_cookies",

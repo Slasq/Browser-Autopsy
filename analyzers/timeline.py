@@ -4,7 +4,6 @@ NOTE: Duplicates are NOT removed because same URL/time may be from diffrent sour
 
 from __future__ import annotations
 
-import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -12,7 +11,7 @@ from typing import Any
 
 from analyzers import wal
 from extractors import chrome, firefox
-from extractors.base import ArtifactError, sha256_file
+from extractors.base import searches_from_visits, sha256_file
 
 @dataclass
 class TimelineEvent:
@@ -74,16 +73,21 @@ def _download_to_event(entry, browser: str) -> TimelineEvent:
     )
 
 
-def _search_to_event(entry, browser: str) -> TimelineEvent:
+def _search_to_event(entry, browser: str,
+                     recovery: str | None = None) -> TimelineEvent:
     engine = getattr(entry, "engine", None)
+    details = {"query": entry.query, "engine": engine}
+    if recovery:
+        details["recovery"] = recovery
     return TimelineEvent(
         timestamp_utc=entry.timestamp,
-        event_type=f"{browser}_search",
+        event_type=f"{browser}_search" + ("_recovered" if recovery else ""),
         browser=browser,
         source_file=entry.source_file,
         source_sha256=entry.sha256,
-        summary=f'Search: "{entry.query}"' + (f" [{engine}]" if engine else ""),
-        details={"query": entry.query, "engine": engine},
+        summary=(f"[{recovery}] " if recovery else "")
+                + f'Search: "{entry.query}"' + (f" [{engine}]" if engine else ""),
+        details=details,
     )
 
 
@@ -198,9 +202,9 @@ def _extend_optional(events: list[TimelineEvent], module, engine: str,
             continue
         try:
             entries = extractor(profile)
-        # sqlite3.Error: inny schemat w starszej wersji przeglądarki,
-        # OSError: plik zablokowany albo bez uprawnień
-        except (ArtifactError, sqlite3.Error, OSError) as e:
+        # Dowód pochodzi od podejrzanego. Zła wartość w jednym artefakcie
+        # nie może zatrzymać pozostałych, stąd szerokie Exception.
+        except Exception as e:
             print(f"[!] Pominięto {func_name} ({browser}): {e}")
             continue
         events.extend(adapter(entry, browser) for entry in entries)
@@ -230,38 +234,34 @@ def build_timeline(
             (e.g. "tor", "librewolf"). Defaults to "firefox".
         wal_recover: When True, also diff each history DB against its WAL to
             surface deleted-but-recoverable records (events tagged
-            *_visit_recovered). No-op for profiles without a -wal file.
+            *_visit_recovered). A deleted visit to a search URL also gives
+            a *_search_recovered event. No-op for profiles without a -wal file.
     """
     if chrome_profile is None and firefox_profile is None:
         raise ValueError("at least one of chrome_profile / firefox_profile required")
 
     events: list[TimelineEvent] = []
 
-    if chrome_profile is not None:
-        events.extend(_visit_to_event(e, chrome_browser_name)
-                      for e in chrome.extract_history(chrome_profile))
-        events.extend(_download_to_event(e, chrome_browser_name)
-                      for e in chrome.extract_downloads(chrome_profile))
-        events.extend(_search_to_event(e, chrome_browser_name)
-                      for e in chrome.extract_searches(chrome_profile))
-        _extend_optional(events, chrome, "chromium",
-                         chrome_profile, chrome_browser_name)
+    for module, engine, profile, browser in (
+        (chrome, "chromium", chrome_profile, chrome_browser_name),
+        (firefox, "gecko", firefox_profile, firefox_browser_name),
+    ):
+        if profile is None:
+            continue
+        visits = module.extract_history(profile)
+        events.extend(_visit_to_event(e, browser) for e in visits)
+        events.extend(_download_to_event(e, browser)
+                      for e in module.extract_downloads(profile))
+        events.extend(_search_to_event(e, browser)
+                      for e in searches_from_visits(visits))
+        _extend_optional(events, module, engine, profile, browser)
         if wal_recover:
-            events.extend(_recovered_to_event(e, chrome_browser_name)
-                          for e in wal.recover_history(chrome_profile, "chromium"))
-
-    if firefox_profile is not None:
-        events.extend(_visit_to_event(e, firefox_browser_name)
-                      for e in firefox.extract_history(firefox_profile))
-        events.extend(_download_to_event(e, firefox_browser_name)
-                      for e in firefox.extract_downloads(firefox_profile))
-        events.extend(_search_to_event(e, firefox_browser_name)
-                      for e in firefox.extract_searches(firefox_profile))
-        _extend_optional(events, firefox, "gecko",
-                         firefox_profile, firefox_browser_name)
-        if wal_recover:
-            events.extend(_recovered_to_event(e, firefox_browser_name)
-                          for e in wal.recover_history(firefox_profile, "gecko"))
+            recovered = wal.recover_history(profile, engine)
+            events.extend(_recovered_to_event(e, browser) for e in recovered)
+            # Wizyta WAL_ONLY jest już w visits, więc jej wyszukiwanie też.
+            deleted = [e for e in recovered if e.recovery == "DELETED_PENDING"]
+            events.extend(_search_to_event(e, browser, recovery="DELETED_PENDING")
+                          for e in searches_from_visits(deleted))
 
     events.sort(key=lambda ev: (ev.timestamp_utc is None, ev.timestamp_utc))
     return events
