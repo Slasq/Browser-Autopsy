@@ -53,7 +53,7 @@ def extract_history(profile_path: Path) -> list[VisitEntry]:
     """
     db_path = profile_path / "History"
     checksum = sha256_file(db_path)
-    print(f"[*] Plik: History\t SHA256: {checksum}")
+    print(f"[*] File: History\t SHA256: {checksum}")
 
     conn, tmp_dir = open_db(db_path)
     entries: list[VisitEntry] = []
@@ -90,7 +90,7 @@ def extract_history(profile_path: Path) -> list[VisitEntry]:
     # Sort: valid timestamps first (ascending)
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Znaleziono {len(entries)} wpisów historii")
+    print(f"[*] Found {len(entries)} history entries")
     return entries
 
 
@@ -115,7 +115,7 @@ def extract_downloads(profile_path: Path) -> list[DownloadEntry]:
     checksum = sha256_file(db_path)
     # SHA256 already printed by extract_history if called together; print anyway
     # for standalone use
-    print(f"[*] Plik: History\t SHA256: {checksum}")
+    print(f"[*] File: History\t SHA256: {checksum}")
 
     conn, tmp_dir = open_db(db_path)
     entries: list[DownloadEntry] = []
@@ -164,7 +164,7 @@ def extract_downloads(profile_path: Path) -> list[DownloadEntry]:
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Znaleziono {len(entries)} pobranych plików")
+    print(f"[*] Found {len(entries)} downloads")
     return entries
 
 
@@ -204,7 +204,7 @@ def extract_cookies(profile_path: Path) -> list[CookieEntry]:
     """
     db_path = _cookies_db_path(profile_path)
     checksum = sha256_file(db_path)
-    print(f"[*] Plik: {db_path.name}\t SHA256: {checksum}")
+    print(f"[*] File: {db_path.name}\t SHA256: {checksum}")
 
     conn, tmp_dir = open_db(db_path)
     entries: list[CookieEntry] = []
@@ -245,7 +245,7 @@ def extract_cookies(profile_path: Path) -> list[CookieEntry]:
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Znaleziono {len(entries)} cookies")
+    print(f"[*] Found {len(entries)} cookies")
     return entries
 
 
@@ -295,7 +295,7 @@ def extract_bookmarks(profile_path: Path) -> list[BookmarkEntry]:
     """
     db_path = profile_path / "Bookmarks"
     checksum = sha256_file(db_path)
-    print(f"[*] Plik: Bookmarks\t SHA256: {checksum}")
+    print(f"[*] File: Bookmarks\t SHA256: {checksum}")
 
     try:
         data = json.loads(db_path.read_text(encoding="utf-8"))
@@ -313,7 +313,7 @@ def extract_bookmarks(profile_path: Path) -> list[BookmarkEntry]:
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Znaleziono {len(entries)} zakładek")
+    print(f"[*] Found {len(entries)} bookmarks")
     return entries
 
 
@@ -336,7 +336,7 @@ def extract_autofill(profile_path: Path) -> list[AutofillEntry]:
     """
     db_path = profile_path / "Web Data"
     checksum = sha256_file(db_path)
-    print(f"[*] Plik: Web Data\t SHA256: {checksum}")
+    print(f"[*] File: Web Data\t SHA256: {checksum}")
 
     conn, tmp_dir = open_db(db_path)
     entries: list[AutofillEntry] = []
@@ -366,7 +366,7 @@ def extract_autofill(profile_path: Path) -> list[AutofillEntry]:
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Znaleziono {len(entries)} wpisów autofill")
+    print(f"[*] Found {len(entries)} autofill entries")
     return entries
 
 
@@ -412,14 +412,14 @@ def extract_extensions(profile_path: Path) -> list[ExtensionEntry]:
     present = [p for p in candidates if p.exists()]
     if not present:
         raise ArtifactNotFoundError(
-            f"Artifact not found: {candidates[0]} (ani 'Secure Preferences')"
+            f"Artifact not found: {candidates[0]} (nor 'Secure Preferences')"
         )
 
     entries: list[ExtensionEntry] = []
 
     for db_path in present:
         checksum = sha256_file(db_path)
-        print(f"[*] Plik: {db_path.name}\t SHA256: {checksum}")
+        print(f"[*] File: {db_path.name}\t SHA256: {checksum}")
 
         try:
             data = json.loads(db_path.read_text(encoding="utf-8"))
@@ -454,5 +454,5 @@ def extract_extensions(profile_path: Path) -> list[ExtensionEntry]:
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Znaleziono {len(entries)} rozszerzeń")
+    print(f"[*] Found {len(entries)} extensions")
     return entries

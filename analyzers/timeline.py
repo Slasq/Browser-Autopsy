@@ -4,6 +4,7 @@ NOTE: Duplicates are NOT removed because same URL/time may be from diffrent sour
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -205,7 +206,7 @@ def _extend_optional(events: list[TimelineEvent], module, engine: str,
         # Dowód pochodzi od podejrzanego. Zła wartość w jednym artefakcie
         # nie może zatrzymać pozostałych, stąd szerokie Exception.
         except Exception as e:
-            print(f"[!] Pominięto {func_name} ({browser}): {e}")
+            print(f"[!] Skipped {func_name} ({browser}): {e}", file=sys.stderr)
             continue
         events.extend(adapter(entry, browser) for entry in entries)
 

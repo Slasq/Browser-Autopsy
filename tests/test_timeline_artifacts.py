@@ -155,7 +155,7 @@ class TestOptionalArtifacts:
 
         events = build_timeline(chrome_profile=Path("/fake"))
         assert events == []
-        assert "Pominięto" in capsys.readouterr().out
+        assert "Skipped" in capsys.readouterr().err
 
     def test_optional_artifact_with_other_schema_skipped(self, core_extractors_stubbed,
                                                          monkeypatch, capsys):
@@ -171,7 +171,7 @@ class TestOptionalArtifacts:
         events = build_timeline(chrome_profile=Path("/fake"))
         # ciasteczka pominięte, zakładki z tego samego profilu zostają
         assert [e.event_type for e in events] == ["chrome_bookmark"]
-        assert "Pominięto extract_cookies" in capsys.readouterr().out
+        assert "Skipped extract_cookies" in capsys.readouterr().err
 
     def test_optional_artifact_with_bad_value_skipped(self, core_extractors_stubbed,
                                                       monkeypatch, capsys):
@@ -184,7 +184,7 @@ class TestOptionalArtifacts:
 
         events = build_timeline(chrome_profile=Path("/fake"))
         assert [e.event_type for e in events] == ["chrome_cookie"]
-        assert "Pominięto extract_bookmarks" in capsys.readouterr().out
+        assert "Skipped extract_bookmarks" in capsys.readouterr().err
 
     def test_cookie_events_included(self, core_extractors_stubbed, monkeypatch):
         monkeypatch.setattr(timeline.chrome, "extract_cookies",

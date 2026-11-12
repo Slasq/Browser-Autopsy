@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -88,7 +89,8 @@ def discover_profiles(input_dir: Path) -> list[DiscoveredProfile]:
             children = sorted(directory.iterdir()) if engine is None else []
         except OSError as e:
             # e.g. 'System Volume Information' on a mounted disk image
-            print(f"[!] Skipped unreadable directory: {directory} ({e})")
+            print(f"[!] Skipped unreadable directory: {directory} ({e})",
+                  file=sys.stderr)
             return
         if engine is not None:
             relative = str(directory.relative_to(input_dir))
@@ -106,7 +108,7 @@ def discover_profiles(input_dir: Path) -> list[DiscoveredProfile]:
                 continue
             # a link can lead outside the evidence directory or into a loop
             if Path(os.path.realpath(child)) != real / child.name:
-                print(f"[!] Skipped link: {child}")
+                print(f"[!] Skipped link: {child}", file=sys.stderr)
                 continue
             _scan(child)
 

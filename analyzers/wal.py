@@ -150,5 +150,5 @@ def recover_history(profile_path: Path, engine: str) -> list[RecoveredEntry]:
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Odzyskano {len(entries)} usuniętych rekordów z WAL")
+    print(f"[*] Recovered {len(entries)} deleted records from the WAL")
     return entries

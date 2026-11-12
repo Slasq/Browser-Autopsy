@@ -127,7 +127,7 @@ then shows the cell as text and does not run it as a formula.
 
 ## Install
 
-The tool needs Python 3.10 or newer. CI runs Python 3.11, 3.12 and 3.13 on
+The tool needs Python 3.10 or newer. CI runs Python 3.10, 3.11, 3.12 and 3.13 on
 Linux, Windows and macOS.
 
 With [uv](https://github.com/astral-sh/uv):

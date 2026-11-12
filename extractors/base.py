@@ -141,10 +141,10 @@ def open_db(path: Path) -> tuple[sqlite3.Connection, Path]:
     try:
         shutil.copy2(path, tmp_db)
 
-        for ext in (".wal", "-wal", ".shm", "-shm"):
-            wal = path.with_suffix(ext) if ext.startswith(".") else Path(str(path) + ext)
-            if wal.exists():
-                shutil.copy2(wal, tmp_dir / wal.name)
+        for suffix in ("-wal", "-shm"):
+            sidecar = Path(str(path) + suffix)
+            if sidecar.exists():
+                shutil.copy2(sidecar, tmp_dir / sidecar.name)
 
         conn = sqlite3.connect(f"file:{tmp_db}?mode=ro", uri=True)
     except BaseException:

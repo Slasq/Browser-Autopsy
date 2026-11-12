@@ -124,7 +124,7 @@ class TestDiscoverProfiles:
 
         result = discover_profiles(tmp_path)
         assert [p.path.name for p in result] == ["chrome"]
-        assert "locked" in capsys.readouterr().out
+        assert "locked" in capsys.readouterr().err
 
     def test_directory_links_are_not_followed(self, tmp_path, capsys):
         # dowiązanie poza katalog dowodów i dowiązanie w pętlę do korzenia
@@ -136,8 +136,8 @@ class TestDiscoverProfiles:
 
         result = discover_profiles(evidence)
         assert [p.path for p in result] == [profile]
-        out = capsys.readouterr().out
-        assert "link_out" in out and "loop" in out
+        err = capsys.readouterr().err
+        assert "link_out" in err and "loop" in err
 
     def test_deterministic_order(self, tmp_path):
         _chromium_profile(tmp_path / "b_chrome")

@@ -44,7 +44,7 @@ def extract_history(profile_path: Path) -> list[VisitEntry]:
     """
     db_path = profile_path / "places.sqlite"
     checksum = sha256_file(db_path)
-    print(f"[*] Plik: places.sqlite\t SHA256: {checksum}")
+    print(f"[*] File: places.sqlite\t SHA256: {checksum}")
 
     conn, tmp_dir = open_db(db_path)
     entries: list[VisitEntry] = []
@@ -81,7 +81,7 @@ def extract_history(profile_path: Path) -> list[VisitEntry]:
     # Sort: valid timestamps first (ascending)
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Znaleziono {len(entries)} wpisów historii")
+    print(f"[*] Found {len(entries)} history entries")
     return entries
 
 
@@ -136,7 +136,7 @@ def extract_downloads(profile_path: Path) -> list[DownloadEntry]:
     """
     db_path = profile_path / "places.sqlite"
     checksum = sha256_file(db_path)
-    print(f"[*] Plik: places.sqlite\t SHA256: {checksum}")
+    print(f"[*] File: places.sqlite\t SHA256: {checksum}")
 
     conn, tmp_dir = open_db(db_path)
     grouped: dict[int, dict] = {}
@@ -222,7 +222,7 @@ def extract_downloads(profile_path: Path) -> list[DownloadEntry]:
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Znaleziono {len(entries)} pobranych plików")
+    print(f"[*] Found {len(entries)} downloads")
     return entries
 
 
@@ -246,7 +246,7 @@ def extract_cookies(profile_path: Path) -> list[CookieEntry]:
     """
     db_path = profile_path / "cookies.sqlite"
     checksum = sha256_file(db_path)
-    print(f"[*] Plik: cookies.sqlite\t SHA256: {checksum}")
+    print(f"[*] File: cookies.sqlite\t SHA256: {checksum}")
 
     conn, tmp_dir = open_db(db_path)
     entries: list[CookieEntry] = []
@@ -292,7 +292,7 @@ def extract_cookies(profile_path: Path) -> list[CookieEntry]:
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Znaleziono {len(entries)} cookies")
+    print(f"[*] Found {len(entries)} cookies")
     return entries
 
 
@@ -316,7 +316,7 @@ def extract_bookmarks(profile_path: Path) -> list[BookmarkEntry]:
     """
     db_path = profile_path / "places.sqlite"
     checksum = sha256_file(db_path)
-    print(f"[*] Plik: places.sqlite\t SHA256: {checksum}")
+    print(f"[*] File: places.sqlite\t SHA256: {checksum}")
 
     conn, tmp_dir = open_db(db_path)
     entries: list[BookmarkEntry] = []
@@ -352,7 +352,7 @@ def extract_bookmarks(profile_path: Path) -> list[BookmarkEntry]:
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Znaleziono {len(entries)} zakładek")
+    print(f"[*] Found {len(entries)} bookmarks")
     return entries
 
 
@@ -373,7 +373,7 @@ def extract_autofill(profile_path: Path) -> list[AutofillEntry]:
     """
     db_path = profile_path / "formhistory.sqlite"
     checksum = sha256_file(db_path)
-    print(f"[*] Plik: formhistory.sqlite\t SHA256: {checksum}")
+    print(f"[*] File: formhistory.sqlite\t SHA256: {checksum}")
 
     conn, tmp_dir = open_db(db_path)
     entries: list[AutofillEntry] = []
@@ -403,7 +403,7 @@ def extract_autofill(profile_path: Path) -> list[AutofillEntry]:
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Znaleziono {len(entries)} wpisów autofill")
+    print(f"[*] Found {len(entries)} autofill entries")
     return entries
 
 
@@ -427,7 +427,7 @@ def extract_extensions(profile_path: Path) -> list[ExtensionEntry]:
     """
     db_path = profile_path / "extensions.json"
     checksum = sha256_file(db_path)
-    print(f"[*] Plik: extensions.json\t SHA256: {checksum}")
+    print(f"[*] File: extensions.json\t SHA256: {checksum}")
 
     try:
         data = json.loads(db_path.read_text(encoding="utf-8"))
@@ -457,5 +457,5 @@ def extract_extensions(profile_path: Path) -> list[ExtensionEntry]:
 
     entries.sort(key=lambda e: (e.timestamp is None, e.timestamp))
 
-    print(f"[*] Znaleziono {len(entries)} rozszerzeń")
+    print(f"[*] Found {len(entries)} extensions")
     return entries
