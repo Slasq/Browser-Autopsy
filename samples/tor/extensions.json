@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 36,
+  "addons": [
+    {
+      "id": "{73a6fe31-595d-460b-a920-fcc0f8843232}",
+      "type": "extension",
+      "version": "11.4.29",
+      "active": true,
+      "installDate": 1773489720000,
+      "defaultLocale": {
+        "name": "NoScript"
+      }
+    }
+  ]
+}

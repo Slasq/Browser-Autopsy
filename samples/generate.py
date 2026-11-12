@@ -15,6 +15,7 @@ Outputs:
                    Preferences
     samples/firefox/places.sqlite, cookies.sqlite, formhistory.sqlite,
                     extensions.json
+    samples/tor/places.sqlite, extensions.json
 """
 import json
 import shutil
@@ -36,8 +37,8 @@ def _firefox_ts(unix: int) -> int:
     return unix * 1_000_000
 
 
-# Incident timeline  (2024-03-15 UTC)
-# t_hhmm = Unix timestamp for 2024-03-15 HH:MM UTC
+# Incident timeline  (2026-03-14 UTC)
+# t_hhmm = Unix timestamp for 2026-03-14 HH:MM UTC
 
 def _t(h: int, m: int = 0) -> int:
     """Return Unix timestamp for 2026-03-14 HH:MM UTC."""
@@ -100,6 +101,13 @@ CHROME_DOWNLOADS = [
         "size": 124_512, "state": 1, "danger": 0,
         "url": "https://github.com/octocat/notes/releases/download/v1/notes.pdf",
     },
+    {
+        # przerwane pobranie: raport oznacza je [CANCELLED]
+        "start": _t(10, 40), "end": 0,
+        "target": r"C:\Users\jkowalski\Downloads\mimikatz_trunk.zip",
+        "size": 1_206_166, "state": 2, "danger": 0,
+        "url": "https://github.com/gentilkiwi/mimikatz/releases/download/fake/mimikatz_trunk.zip",
+    },
 ]
 
 
@@ -156,7 +164,7 @@ def build_chrome(db_path: Path) -> None:
         conn.execute(
             "INSERT INTO downloads (start_time, end_time, target_path, total_bytes, state, danger_type)"
             " VALUES (?,?,?,?,?,?)",
-            (_chrome_ts(dl["start"]), _chrome_ts(dl["end"]),
+            (_chrome_ts(dl["start"]), _chrome_ts(dl["end"]) if dl["end"] else 0,
              dl["target"], dl["size"], dl["state"], dl["danger"]),
         )
         conn.execute(
@@ -210,7 +218,8 @@ FIREFOX_DOWNLOADS = [
 ]
 
 
-def build_firefox(db_path: Path) -> None:
+def build_firefox(db_path: Path, history=FIREFOX_HISTORY_URLS,
+                  downloads=FIREFOX_DOWNLOADS) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
         db_path.unlink()
@@ -245,7 +254,7 @@ def build_firefox(db_path: Path) -> None:
         );
     """)
 
-    for entry in FIREFOX_HISTORY_URLS:
+    for entry in history:
         conn.execute(
             "INSERT INTO moz_places (url, title, visit_count) VALUES (?,?,?)",
             (entry["url"], entry["title"], entry["visit_count"]),
@@ -261,7 +270,7 @@ def build_firefox(db_path: Path) -> None:
     conn.execute("INSERT INTO moz_anno_attributes (name) VALUES ('downloads/metaData')")
     meta_attr_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
-    for dl in FIREFOX_DOWNLOADS:
+    for dl in downloads:
         conn.execute(
             "INSERT INTO moz_places (url, title, visit_count) VALUES (?,?,?)",
             (dl["url"], "", 1),
@@ -285,7 +294,7 @@ def build_firefox(db_path: Path) -> None:
 
     conn.commit()
     conn.close()
-    print(f"[+] Firefox -> {db_path}")
+    print(f"[+] Gecko   -> {db_path}")
 
 
 # Chrome — v2 artifacts (cookies, bookmarks, autofill, extensions)
@@ -510,7 +519,34 @@ def _augment_firefox(profile: Path) -> None:
     }, indent=2), encoding="utf-8")
 
 
-def _add_firefox_bookmarks(db_path: Path) -> None:
+FIREFOX_BOOKMARKS = [
+    ("https://stackoverflow.com/questions/tagged/python",
+     "Python — Stack Overflow", _t(8, 45)),
+    ("https://github.com/gentilkiwi/mimikatz",
+     "gentilkiwi/mimikatz", _t(11, 40)),
+]
+
+
+def _onion(name: str) -> str:
+    """Fake v3 onion URL: a host of 56 characters that starts with `name`."""
+    return f"http://{name.ljust(56, 'x')}.onion/"
+
+
+# Tor Browser  (samples/tor)
+# Tor Browser nie zapisuje historii. Zakładki i rozszerzenia zostają na dysku.
+TOR_BOOKMARKS = [
+    (_onion("pastemirror"), "Paste mirror", _t(12, 5)),
+    (_onion("filedrop"), "Anonymous file drop", _t(12, 10)),
+]
+
+TOR_EXTENSIONS = [
+    {"id": "{73a6fe31-595d-460b-a920-fcc0f8843232}", "type": "extension",
+     "version": "11.4.29", "active": True, "installDate": _t(12, 2) * 1000,
+     "defaultLocale": {"name": "NoScript"}},
+]
+
+
+def _add_firefox_bookmarks(db_path: Path, bookmarks=FIREFOX_BOOKMARKS) -> None:
     """Add moz_bookmarks rows to an existing places.sqlite."""
     conn = sqlite3.connect(db_path)
     conn.executescript("""
@@ -522,12 +558,6 @@ def _add_firefox_bookmarks(db_path: Path) -> None:
     conn.execute("INSERT INTO moz_bookmarks (type, parent, title, dateAdded)"
                  " VALUES (2, 0, 'Toolbar', 0)")
     toolbar_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-    bookmarks = [
-        ("https://stackoverflow.com/questions/tagged/python",
-         "Python — Stack Overflow", _t(8, 45)),
-        ("https://github.com/gentilkiwi/mimikatz",
-         "gentilkiwi/mimikatz", _t(11, 40)),
-    ]
     for url, title, added in bookmarks:
         conn.execute("INSERT INTO moz_places (url, title, visit_count)"
                      " VALUES (?,?,0)", (url, title))
@@ -559,9 +589,16 @@ if __name__ == "__main__":
     print(f"[+] Firefox v2 artifacts (cookies, bookmarks, formhistory, "
           f"extensions) -> {root / 'firefox'}")
 
+    tor_places = root / "tor" / "places.sqlite"
+    build_firefox(tor_places, history=[], downloads=[])
+    _add_firefox_bookmarks(tor_places, TOR_BOOKMARKS)
+    (root / "tor" / "extensions.json").write_text(json.dumps({
+        "schemaVersion": 36, "addons": TOR_EXTENSIONS,
+    }, indent=2), encoding="utf-8")
+    print(f"[+] Tor     artifacts (bookmarks, extensions) -> {root / 'tor'}")
+
     print()
     print("Sample artifacts generated. Run the tool with:")
     print()
-    print(f"  python main.py --chrome-profile {root / 'chrome'} "
-          f"--firefox-profile {root / 'firefox'} --wal-recover "
+    print(f"  python main.py --input {root} --wal-recover "
           f"--case-id INC-2026-03-14 --report all --output-dir output/demo")

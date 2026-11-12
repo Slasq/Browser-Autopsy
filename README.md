@@ -95,11 +95,11 @@ browser and prints to a clean A4 PDF.
 The summary section shows a timeline strip for each browser and the activity for
 each hour of the day. Red dots mark events with an anomaly.
 
-![Visual timeline strip for Chrome and Firefox and a bar chart of activity by hour](docs/img/report-charts.png)
+![Visual timeline strip for Chrome, Firefox and Tor and a bar chart of activity by hour](docs/img/report-charts.png)
 
 The anomaly table lists every hit with its rule, reason and the IOC entry that matched.
 
-![Table of ten detected anomalies sorted by severity](docs/img/report-anomalies.png)
+![Table of thirteen detected anomalies sorted by severity](docs/img/report-anomalies.png)
 
 The full timeline highlights flagged rows. A visit that the user deleted, but
 that is still in the main database image, has the tag `DELETED_PENDING`.
@@ -157,12 +157,15 @@ employee researches offensive tools, visits flagged domains, downloads
 suspicious files and then deletes one history entry. That entry is still
 recoverable from the WAL.
 
-1. Run the tool on the sample profiles:
+The samples hold three profiles: Chrome, Firefox and Tor Browser. The Tor
+profile has no history, because Tor Browser does not store it. It has two
+bookmarks to onion sites and one extension.
+
+1. Run the tool on the sample directory:
 
    ```bash
    python main.py \
-       --chrome-profile  samples/chrome \
-       --firefox-profile samples/firefox \
+       --input           samples \
        --wal-recover \
        --case-id         INC-2026-03-14 \
        --report          all \
@@ -171,8 +174,14 @@ recoverable from the WAL.
 
 2. Open `output/demo/report.html`.
 
-The run gives 54 events and 11 anomalies. To build the sample artifacts again,
-run `python samples/generate.py`.
+The run finds the three profiles and gives 58 events and 13 anomalies. It
+prints two warnings, because the Tor profile has no cookie and no form
+history file. To build the sample artifacts again, run
+`python samples/generate.py`.
+
+Each run of the generator writes a new `History-wal`, because SQLite puts
+random salt values in the WAL header. The hash of that file then changes, so
+build `report_demo.html` again. The other sample files stay identical.
 
 ## Usage
 
