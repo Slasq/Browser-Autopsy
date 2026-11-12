@@ -490,6 +490,8 @@ class TestMainErrors:
             "--output-dir", str(tmp_path / "out"),
         ])
         assert rc == 1
+        # zły plik IOC kończy przebieg przed długą ekstrakcją
+        assert stub_pipeline["build_timeline"] == []
 
     def test_invalid_ioc_file_returns_1(self, capsys, tmp_path, stub_pipeline):
         # skalar zamiast listy: czytelny komunikat zamiast tracebacka

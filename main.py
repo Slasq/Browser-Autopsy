@@ -200,7 +200,20 @@ def main(argv: list[str] | None = None) -> int:
         _log(f"[*] Time window:     {window_start}  ..  {window_end}")
     _log("")
 
-    # 0 Discover profiles in the evidence directory (multi-profile mode)
+    # 0 Load IOCs first: a bad IOC file must fail before the long extraction
+    _log(f"[*] Loading IOCs from {args.ioc_file}...")
+    try:
+        iocs = load_iocs(args.ioc_file)
+    except (FileNotFoundError, IOCConfigError) as e:
+        _err(f"[!] {e}")
+        return 1
+    _log(
+        f"[+] IOCs: {len(iocs.suspicious_domains)} domains, "
+        f"{len(iocs.suspicious_extensions)} extensions, "
+        f"{len(iocs.suspicious_keywords)} keywords"
+    )
+
+    # 1 Discover profiles in the evidence directory (multi-profile mode)
     discovered = []
     if args.input is not None:
         try:
@@ -216,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
             _log(f"[*] Discovered profile: {prof.browser} ({prof.engine})"
                  f" -> {prof.path}")
 
-    # 1 Build timeline
+    # 2 Build timeline
     _log("[*] Building timeline...")
     try:
         events = []
@@ -272,7 +285,7 @@ def main(argv: list[str] | None = None) -> int:
     # Lista źródeł powstaje przed filtrem czasu. Plik bez zdarzeń w oknie też został odczytany.
     source_files = collect_source_files(events)
 
-    # 2 Optional time-window filter
+    # 3 Optional time-window filter
     if args.start is not None or args.end is not None:
         before = len(events)
         events = filter_by_time(events, start=args.start, end=args.end)
@@ -280,19 +293,6 @@ def main(argv: list[str] | None = None) -> int:
             f"[+] After time filter: {len(events)} events "
             f"({before - len(events)} dropped)"
         )
-
-    # 3 Load IOCs
-    _log(f"[*] Loading IOCs from {args.ioc_file}...")
-    try:
-        iocs = load_iocs(args.ioc_file)
-    except (FileNotFoundError, IOCConfigError) as e:
-        _err(f"[!] {e}")
-        return 1
-    _log(
-        f"[+] IOCs: {len(iocs.suspicious_domains)} domains, "
-        f"{len(iocs.suspicious_extensions)} extensions, "
-        f"{len(iocs.suspicious_keywords)} keywords"
-    )
 
     # 4 Detect anomalies
     _log("[*] Detecting anomalies...")

@@ -92,6 +92,26 @@ class TestCorruptedDatabase:
             open_db(p)
         assert created and not os.path.exists(created[0])
 
+    def test_no_tempdir_leak_when_copy_fails(self, tmp_path, monkeypatch):
+        """Kopia bazy musi zniknąć, gdy kopiowanie pliku -wal padnie."""
+        import extractors.base as base
+        created = []
+        real_mkdtemp = base.tempfile.mkdtemp
+
+        def spy(*a, **kw):
+            d = real_mkdtemp(*a, **kw)
+            created.append(d)
+            return d
+
+        monkeypatch.setattr(base.tempfile, "mkdtemp", spy)
+        p = tmp_path / "History"
+        sqlite3.connect(p).close()
+        # katalog w miejscu pliku -wal psuje kopiowanie tak jak zablokowany plik
+        (tmp_path / "History-wal").mkdir()
+        with pytest.raises(OSError):
+            open_db(p)
+        assert created and not os.path.exists(created[0])
+
 
 class TestValidDatabase:
 

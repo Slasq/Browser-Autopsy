@@ -138,14 +138,19 @@ def open_db(path: Path) -> tuple[sqlite3.Connection, Path]:
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="bft_"))
     tmp_db = tmp_dir / path.name
-    shutil.copy2(path, tmp_db)
+    try:
+        shutil.copy2(path, tmp_db)
 
-    for ext in (".wal", "-wal", ".shm", "-shm"):
-        wal = path.with_suffix(ext) if ext.startswith(".") else Path(str(path) + ext)
-        if wal.exists():
-            shutil.copy2(wal, tmp_dir / wal.name)
+        for ext in (".wal", "-wal", ".shm", "-shm"):
+            wal = path.with_suffix(ext) if ext.startswith(".") else Path(str(path) + ext)
+            if wal.exists():
+                shutil.copy2(wal, tmp_dir / wal.name)
 
-    conn = sqlite3.connect(f"file:{tmp_db}?mode=ro", uri=True)
+        conn = sqlite3.connect(f"file:{tmp_db}?mode=ro", uri=True)
+    except BaseException:
+        # kopia dowodu nie może zostać w katalogu temp po nieudanym otwarciu
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
 
     # Integrity gate quick_check wykrywa zarówno file is not a database jak i database disk image is malformed czego samo PRAGMA schema_version by nie złapało.
     try:
