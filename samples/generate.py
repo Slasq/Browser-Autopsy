@@ -20,7 +20,6 @@ Outputs:
 import json
 import shutil
 import sqlite3
-import tempfile
 from pathlib import Path
 
 # Timestamp helpers

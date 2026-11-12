@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from extractors.chrome import DownloadEntry, extract_downloads
+from extractors.chrome import extract_downloads
 
 # timestamps
 

@@ -3,7 +3,6 @@ Tests for reporters/json.py — machine-readable JSON export.
 """
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 
 from analyzers.anomaly import Anomaly
 from analyzers.timeline import TimelineEvent

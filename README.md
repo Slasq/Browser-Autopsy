@@ -104,7 +104,7 @@ The anomaly table lists every hit with its rule, reason and the IOC entry that m
 The full timeline highlights flagged rows. A visit that the user deleted, but
 that is still in the main database image, has the tag `DELETED_PENDING`.
 
-![Timeline rows with highlighted anomalies and one recovered deleted visit](docs/img/report-timeline.png)
+![Timeline rows with highlighted anomalies, one recovered deleted search and one cancelled download](docs/img/report-timeline.png)
 
 The screenshots show the demo case from this repository. The file
 `report_demo.html` in the repository root contains the same report.
@@ -326,7 +326,7 @@ cannot recover a record after SQLite merges the WAL and reuses the pages.
 ## Limitations
 
 1. The tool does not read cookie values. Chromium encrypts them with a key from the operating system.
-2. The tool calculates the hash of a `-wal` file when it writes the report, after it reads the database.
+2. The tool calculates the hash of a `-wal` file after it reads the database, not before.
 3. The WAL recovery finds only records that SQLite has not yet merged into the main file.
 4. The browser label from `--input` comes from the directory path. Use `--chrome-browser` or `--firefox-browser` with an explicit profile to set it.
 5. A domain entry without a wildcard does not match subdomains.

@@ -6,7 +6,7 @@ Orchestrates the full forensic pipeline:
   2. build a unified, chronological timeline
   3. (optional) narrow it to a time window
   4. detect anomalies against an IOC config
-  5. render HTML and/or CSV reports
+  5. render HTML, CSV and JSON reports
 
 Exit codes follow common DFIR-tool conventions:
   0 - success
@@ -71,7 +71,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description=(
             "Browser-Autopsy — offline DFIR analyzer for Chrome and Firefox "
             "artifacts. Builds a unified timeline, flags suspicious activity "
-            "against a configurable IOC set, and produces HTML/CSV reports."
+            "against a configurable IOC set, and produces HTML, CSV and JSON reports."
         ),
     )
 

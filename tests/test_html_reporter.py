@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import pytest
-
 from analyzers.anomaly import Anomaly
 from analyzers.timeline import TimelineEvent
 from reporters.html import _build_context, render_report

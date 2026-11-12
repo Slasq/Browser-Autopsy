@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "browser-autopsy"
-version = "2.0.0"
+version = "2.2.0"
 description = "Offline DFIR analyzer for Chromium- and Gecko-family browser artifacts"
 requires-python = ">=3.10"
 dependencies = [

@@ -273,7 +273,7 @@ def collect_source_files(events: list[TimelineEvent]) -> dict[str, str]:
 
     A SQLite '-wal' file next to a source database is listed too: open_db
     replays it, so its content shapes the extracted records. Its hash is
-    calculated here, when the report is built, not before parsing.
+    calculated here, after parsing, not before.
     """
     files: dict[str, str] = {}
     for e in events:
